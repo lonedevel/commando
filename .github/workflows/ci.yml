@@ -18,16 +18,29 @@ jobs:
       - run: make build
 
   homebrew:
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Put Homebrew on PATH (Linux)
+        if: runner.os == 'Linux'
+        run: echo /home/linuxbrew/.linuxbrew/bin >> "$GITHUB_PATH"
       - name: Tap this checkout
         run: brew tap lonedevel/commando "$GITHUB_WORKSPACE"
       - name: Audit formula
         run: brew audit --strict lonedevel/commando/commando
       - name: Style formula
         run: brew style lonedevel/commando/commando
-      - name: Build from source
-        run: brew install --build-from-source lonedevel/commando/commando
+      - name: Install prebuilt binary
+        run: brew install lonedevel/commando/commando
       - name: Test formula
         run: brew test lonedevel/commando/commando
+      - name: Build HEAD from source
+        if: runner.os == 'macOS'
+        run: |
+          brew uninstall lonedevel/commando/commando
+          brew install --HEAD lonedevel/commando/commando
+          brew test lonedevel/commando/commando
