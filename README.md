@@ -48,7 +48,7 @@ commando ls
 
 ## Install
 
-With Homebrew (macOS or Linux):
+With Homebrew (macOS or Linux; installs a prebuilt binary, no Go needed):
 
 ```sh
 brew tap lonedevel/commando https://github.com/lonedevel/commando
@@ -184,8 +184,9 @@ version that isn't tagged yet:
 2. Add a `## v0.3.0` section at the top of `RELEASE_NOTES.md`.
 3. Merge to `main`. The workflow runs the tests, builds the archives, tags
    `v0.3.0` and publishes the release with those notes and files.
-4. Point `Formula/commando.rb` at the new release: update `url` and set
-   `sha256` to the checksum of the release's source tarball.
+4. Run `scripts/update-formula.sh 0.3.0` and merge the change. It rewrites
+   `Formula/commando.rb` to install that release's prebuilt binaries, using
+   the checksums the release published.
 
 ## License
 
