@@ -1,0 +1,66 @@
+name: Release
+
+# Publishes a GitHub release whenever main declares a version (in
+# cmd/commando/main.go) that has no tag yet. To release: bump the version,
+# add its section to RELEASE_NOTES.md, and merge to main.
+on:
+  push:
+    branches: [main]
+    paths:
+      - cmd/commando/main.go
+      - RELEASE_NOTES.md
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version
+        id: version
+        run: |
+          version=$(scripts/version.sh)
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "v$version is already tagged; nothing to release."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-go@v5
+        if: steps.version.outputs.exists == 'false'
+        with:
+          go-version-file: go.mod
+
+      - name: Test
+        if: steps.version.outputs.exists == 'false'
+        run: make lint test
+
+      - name: Build archives
+        if: steps.version.outputs.exists == 'false'
+        run: make dist VERSION=${{ steps.version.outputs.version }}
+
+      - name: Publish release
+        if: steps.version.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          scripts/release-notes.sh "$VERSION" > notes.md
+          gh release create "v$VERSION" dist/*.tar.gz dist/checksums.txt \
+            --target "$GITHUB_SHA" \
+            --title "commando v$VERSION" \
+            --notes-file notes.md \
+            --latest

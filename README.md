@@ -61,6 +61,11 @@ Or with Go 1.24+:
 go install github.com/lonedevel/commando/cmd/commando@latest
 ```
 
+Or download a prebuilt archive for macOS or Linux from the
+[releases page](https://github.com/lonedevel/commando/releases), unpack it and
+put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it
+can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 or from a checkout:
 
 ```sh
@@ -167,7 +172,20 @@ manual page is parsed in a surprising way.
 ```sh
 make test     # unit tests, including fixtures from GNU, BSD and macOS man pages
 make build    # ./bin/commando
+make dist     # release archives for macOS and Linux in ./dist
 ```
+
+### Releasing
+
+Releases are published by the `Release` workflow whenever `main` declares a
+version that isn't tagged yet:
+
+1. Set `version` in `cmd/commando/main.go` (e.g. `0.3.0`).
+2. Add a `## v0.3.0` section at the top of `RELEASE_NOTES.md`.
+3. Merge to `main`. The workflow runs the tests, builds the archives, tags
+   `v0.3.0` and publishes the release with those notes and files.
+4. Point `Formula/commando.rb` at the new release: update `url` and set
+   `sha256` to the checksum of the release's source tarball.
 
 ## License
 

@@ -1,5 +1,40 @@
 # Release notes
 
+## v0.2.0
+
+commando now remembers what you run, and lets you save a form you use often as a named preset.
+
+### New: presets and recent commands
+
+- **Recent commands.** Every command you run through commando is remembered, up to the last 10 per command, including ones built with `-p` or the Ctrl-X Ctrl-O shell shortcut.
+- **Presets.** Fill in a form, press **Ctrl-T** and give it a name, such as "gzip archive of a folder".
+- **Start from them.** Opening a command with no options typed, e.g. `commando tar`, lists its presets and recent commands first. Press Enter to load one into the form, adjust it, and run. `d` deletes an entry, Esc starts with a blank form, and **Ctrl-L** brings the list back at any time.
+- **Start screen.** Running `commando` on its own now lists your most recent commands across all tools.
+- **Where it's kept.** `~/Library/Application Support/commando/store.json` on macOS and `~/.config/commando/store.json` on Linux, readable only by you. Like your shell history, it holds full command lines, so pass `--no-history` or set `COMMANDO_NO_HISTORY=1` if you'd rather not keep them.
+
+### Also new
+
+- **Ready-to-run downloads.** Each release now includes prebuilt binaries for macOS (Apple silicon and Intel) and Linux (x86-64 and ARM64), with a `checksums.txt` file.
+- Releases are now published automatically from `main`.
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando        # or: brew upgrade commando
+```
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.2.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`.
+The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.1.0
 
 First release of **commando**, a terminal app that turns any Unix command's man page into a form. Put it in front of a command, choose options with checkboxes, dropdowns and radio buttons, read what each option does, then press Enter to run the command you built.
