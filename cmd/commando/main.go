@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 	"syscall"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/lonedevel/commando/internal/cmdline"
 	"github.com/lonedevel/commando/internal/manpage"
+	"github.com/lonedevel/commando/internal/store"
 	"github.com/lonedevel/commando/internal/ui"
 )
 
@@ -40,6 +42,7 @@ Flags:
   -l, --line LINE    start from an existing command line (for shell widgets)
       --long         prefer --long option names over short ones
       --no-cache     re-parse the manual even if it is cached
+      --no-history   don't record this command or show presets and history
       --init SHELL   print shell integration for zsh, bash or fish
       --dump         print the parsed options as JSON and exit
   -v, --version      print the version
@@ -58,8 +61,8 @@ func main() {
 
 func run(argv []string) int {
 	var (
-		printOnly, long, noCache, dump bool
-		line, initShell                string
+		printOnly, long, noCache, dump, noHistory bool
+		line, initShell                           string
 	)
 	i := 0
 	for ; i < len(argv); i++ {
@@ -89,6 +92,8 @@ func run(argv []string) int {
 			noCache = true
 		case "--dump":
 			dump = true
+		case "--no-history":
+			noHistory = true
 		case "-l", "--line":
 			line = next()
 		case "--init":
@@ -138,7 +143,11 @@ func run(argv []string) int {
 	lipgloss.SetDefaultRenderer(lipgloss.NewRenderer(tty, termenv.WithColorCache(true)))
 	out := termenv.NewOutput(tty)
 
-	model := ui.New(ui.Config{Line: line, UseCache: !noCache, PreferLong: long, Output: out})
+	var st *store.Store
+	if !noHistory && os.Getenv("COMMANDO_NO_HISTORY") == "" {
+		st = store.Load()
+	}
+	model := ui.New(ui.Config{Line: line, UseCache: !noCache, PreferLong: long, Output: out, Store: st})
 	p := tea.NewProgram(model,
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
@@ -152,6 +161,12 @@ func run(argv []string) int {
 	res := model.Result()
 	if !res.Accepted || strings.TrimSpace(res.Command) == "" {
 		return 130
+	}
+	if st != nil {
+		st.AddRecent(res.Key, res.Command, time.Now())
+		if err := st.Save(); err != nil {
+			fmt.Fprintln(os.Stderr, "commando: could not save history:", err)
+		}
 	}
 	if printOnly {
 		fmt.Println(res.Command)

@@ -34,6 +34,10 @@ commando ls
   the other off.
 - **Pre-fills from what you typed.** `commando grep -rn TODO .` opens with
   `-r` and `-n` already checked and `TODO .` as arguments.
+- **Presets and recent commands.** Every command you run is remembered, and
+  `Ctrl-T` saves the current form as a named preset. The next time you open
+  `commando tar`, your presets and recent tar commands are listed first: pick
+  one and adjust it instead of starting over.
 - **Subcommands.** `commando git commit` uses `git-commit(1)`;
   `commando cargo build` uses `cargo build --help`.
 - **Fast.** The form opens immediately and loads in the background. Parsed
@@ -94,6 +98,27 @@ commando --init fish | source
 
 Then type a command, for example `rsync -a`, and press **Ctrl-X Ctrl-O**.
 
+### Presets and recent commands
+
+commando remembers the last 10 command lines you ran for each command, and
+any presets you save:
+
+- **Save a preset:** fill in the form, press `Ctrl-T` and type a name, such
+  as "gzip archive of a folder".
+- **Reuse one:** when you open a command with no options typed, its presets
+  and recent commands are listed first. Choose one and press Enter to load
+  it into the form, then adjust it and run. `Ctrl-L` brings the list back at
+  any time, and `d` deletes the highlighted entry.
+- **Start from anywhere:** running `commando` with no command lists your most
+  recent commands across all tools.
+
+They are stored in `~/Library/Application Support/commando/store.json` on
+macOS and `~/.config/commando/store.json` on Linux (set `COMMANDO_DATA_DIR`
+to change the folder). The file is readable only by you, but like your
+shell history it holds the full command lines, including any tokens or
+passwords you typed. Pass `--no-history`, or set `COMMANDO_NO_HISTORY=1`, to
+turn this off.
+
 ### Keys
 
 | Key | Action |
@@ -107,6 +132,8 @@ Then type a command, for example `rsync -a`, and press **Ctrl-X Ctrl-O**.
 | `Ctrl-O` / `F1` / `?` | Open the full manual at the focused option |
 | `Shift-↑` `Shift-↓` | Scroll the help panel |
 | `Ctrl-S` | Switch between short (`-a`) and long (`--all`) names |
+| `Ctrl-L` | Show presets and recent commands |
+| `Ctrl-T` | Save the form as a named preset |
 | `Ctrl-Y` | Copy the command to the clipboard |
 | `Ctrl-R` | Clear everything |
 | `Enter` | Run the command (or print it with `-p`) |

@@ -4,12 +4,14 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/lonedevel/commando/internal/cmdline"
 	"github.com/lonedevel/commando/internal/manpage"
+	"github.com/lonedevel/commando/internal/store"
 )
 
 func specFrom(t *testing.T, name string) *manpage.Spec {
@@ -166,5 +168,56 @@ func TestViewSizes(t *testing.T) {
 				t.Fatalf("%s %v: %d lines", fx, sz, n)
 			}
 		}
+	}
+}
+
+func TestPresetsAndRecent(t *testing.T) {
+	t.Setenv("COMMANDO_DATA_DIR", t.TempDir())
+	st := store.Load()
+	st.AddRecent("ls", "ls -l /tmp", time.Now().Add(-time.Hour))
+
+	m := New(Config{Line: "ls", Store: st})
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m.Update(loadedMsg{spec: specFrom(t, "gnu-ls")})
+	if !m.lib || m.libSel != 1 {
+		t.Fatalf("library not offered on open: lib=%v sel=%d", m.lib, m.libSel)
+	}
+	keys(m, "enter") // load the recent command
+	if m.lib || m.command() != "ls -l /tmp" {
+		t.Fatalf("recent not applied: lib=%v cmd=%q", m.lib, m.command())
+	}
+
+	// Save the current form as a preset.
+	keys(m, "space") // toggle -a (cursor starts on the first option)
+	m.Update(tea.KeyMsg{Type: tea.KeyCtrlT})
+	if !m.naming {
+		t.Fatal("^T did not start naming")
+	}
+	keys(m, "mine", "enter")
+	presets, _ := store.Load().For("ls")
+	if len(presets) != 1 || presets[0].Name != "mine" || presets[0].Line != "ls -al /tmp" {
+		t.Fatalf("saved presets = %+v", presets)
+	}
+
+	// Reopen the list, delete the preset.
+	m.Update(tea.KeyMsg{Type: tea.KeyCtrlL})
+	if !m.lib || m.libItems[m.libSel].kind != libPreset {
+		t.Fatalf("^L: lib=%v sel=%d", m.lib, m.libSel)
+	}
+	keys(m, "d")
+	if presets, _ := store.Load().For("ls"); len(presets) != 0 {
+		t.Errorf("preset not deleted: %+v", presets)
+	}
+	keys(m, "esc")
+	if m.lib {
+		t.Error("esc did not close the list")
+	}
+
+	// A command line given up front skips the list.
+	m2 := New(Config{Line: "ls -a", Store: store.Load()})
+	m2.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m2.Update(loadedMsg{spec: specFrom(t, "gnu-ls"), rest: cmdline.Split("-a")})
+	if m2.lib {
+		t.Error("library shown despite existing options")
 	}
 }

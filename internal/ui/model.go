@@ -17,6 +17,7 @@ import (
 
 	"github.com/lonedevel/commando/internal/cmdline"
 	"github.com/lonedevel/commando/internal/manpage"
+	"github.com/lonedevel/commando/internal/store"
 )
 
 // Config is how the program was invoked.
@@ -25,12 +26,14 @@ type Config struct {
 	UseCache   bool
 	PreferLong bool
 	Output     *termenv.Output // for OSC52 clipboard fallback
+	Store      *store.Store    // presets and history; nil disables them
 }
 
 // Result is what the user decided.
 type Result struct {
 	Command  string
 	Accepted bool
+	Key      string // the command the form was for, e.g. "git commit"
 }
 
 type mode int
@@ -79,12 +82,13 @@ type Model struct {
 	spin spinner.Model
 
 	// pick mode
-	pick     textinput.Model
-	pathCmds []string
-	sugg     []string
-	suggSel  int
-	pickErr  string
-	loadWhat string
+	pick       textinput.Model
+	pathCmds   []string
+	sugg       []string
+	suggSel    int
+	suggRecent bool // sugg holds recent command lines, not command names
+	pickErr    string
+	loadWhat   string
 
 	// form mode
 	spec       *manpage.Spec
@@ -105,6 +109,13 @@ type Model struct {
 	preferLong bool
 	listTop    int   // screen row of first list line (for mouse)
 	lineRows   []int // vis index per rendered list line (for mouse)
+
+	// presets & recent (shown in place of the option list)
+	lib      bool
+	libItems []libItem
+	libSel   int
+	naming   bool // typing a name for a new preset
+	presetIn textinput.Model
 
 	// manual mode
 	manLines  []string
@@ -133,6 +144,8 @@ func New(cfg Config) *Model {
 	m.args = newInput("files, URLs, other arguments…")
 	m.filter = newInput("type to filter options")
 	m.filter.Prompt = ""
+	m.presetIn = newInput("e.g. long listing with sizes")
+	m.presetIn.Prompt = ""
 	m.manSearch = newInput("search manual")
 	m.manSearch.Prompt = "/"
 
@@ -282,7 +295,29 @@ func (m *Model) onLoaded(msg loadedMsg) tea.Cmd {
 		return tea.Batch(m.pick.Focus(), scanPath)
 	}
 	m.spec = msg.spec
-	vals, args := cmdline.Prefill(m.spec, msg.rest)
+	m.fill(msg.rest)
+	m.buildRows()
+	m.mode = modeForm
+	m.cursor = 0
+	m.move(1) // start on the first option; Arguments stays one ↑ away
+	m.resizeInputs()
+	src := "man page"
+	if m.spec.Source == "help" {
+		src = "--help"
+	}
+	m.loadInfo = fmt.Sprintf("%d options from %s in %s", len(m.spec.Options), src, msg.elapsed.Round(time.Millisecond))
+	m.manLines = colorizeManual(m.spec.Manual)
+	// Offer saved presets and recent commands when starting from scratch.
+	if len(msg.rest) == 0 && m.loadLibrary() > 0 {
+		m.lib = true
+		m.libSel = 1 // the first preset (or latest command); Blank form is one ↑ away
+	}
+	return m.focusCurrent()
+}
+
+// fill sets the form from command-line words that follow the command.
+func (m *Model) fill(rest []cmdline.Word) {
+	vals, args := cmdline.Prefill(m.spec, rest)
 	m.values = vals
 	m.inputs = map[int]*textinput.Model{}
 	for i, o := range m.spec.Options {
@@ -309,18 +344,7 @@ func (m *Model) onLoaded(msg loadedMsg) tea.Cmd {
 	}
 	m.args.SetValue(args)
 	m.args.CursorEnd()
-	m.buildRows()
-	m.mode = modeForm
-	m.cursor = 0
-	m.move(1) // start on the first option; Arguments stays one ↑ away
 	m.resizeInputs()
-	src := "man page"
-	if m.spec.Source == "help" {
-		src = "--help"
-	}
-	m.loadInfo = fmt.Sprintf("%d options from %s in %s", len(m.spec.Options), src, msg.elapsed.Round(time.Millisecond))
-	m.manLines = colorizeManual(m.spec.Manual)
-	return m.focusCurrent()
 }
 
 // buildRows lays out the form: sections, radio groups and options.
@@ -504,6 +528,10 @@ func (m *Model) focusCurrent() tea.Cmd {
 	for _, ti := range m.inputs {
 		ti.Blur()
 	}
+	if m.lib || m.naming {
+		m.filter.Blur()
+		return nil
+	}
 	if m.filtering {
 		return m.filter.Focus()
 	}
@@ -635,12 +663,18 @@ func (m *Model) tokens() []cmdline.Token {
 
 func (m *Model) accept() tea.Cmd {
 	m.commitCustom()
-	m.result = Result{Command: cmdline.Render(m.tokens()), Accepted: true}
+	m.result = Result{Command: cmdline.Render(m.tokens()), Accepted: true, Key: m.spec.Command}
 	return tea.Quit
 }
 
 func (m *Model) updateForm(k tea.KeyMsg) tea.Cmd {
 	key := k.String()
+	if m.naming {
+		return m.updateNaming(k)
+	}
+	if m.lib {
+		return m.updateLibrary(k)
+	}
 	r := m.curRow()
 
 	// Dropdown open: it owns the keyboard.
@@ -714,6 +748,10 @@ func (m *Model) updateForm(k tea.KeyMsg) tea.Cmd {
 		return tea.Quit
 	case "ctrl+f":
 		return m.startFilter("")
+	case "ctrl+l":
+		return m.openLibrary()
+	case "ctrl+t":
+		return m.startNaming()
 	case "ctrl+o", "f1":
 		m.openManual()
 		return nil
@@ -952,6 +990,11 @@ func (m *Model) forwardToFocused(msg tea.Msg) tea.Cmd {
 			return cmd
 		}
 	case modeForm:
+		if m.naming {
+			var cmd tea.Cmd
+			m.presetIn, cmd = m.presetIn.Update(msg)
+			return cmd
+		}
 		if m.filtering {
 			var cmd tea.Cmd
 			m.filter, cmd = m.filter.Update(msg)
@@ -980,7 +1023,7 @@ func (m *Model) onMouse(msg tea.MouseMsg) tea.Cmd {
 	default:
 		return nil
 	}
-	if m.dropdown {
+	if m.dropdown || m.lib || m.naming {
 		return nil
 	}
 	switch msg.Button {
