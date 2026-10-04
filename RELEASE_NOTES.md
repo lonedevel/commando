@@ -32,7 +32,14 @@ commando git commit
 
 ### Install
 
-Requires Go 1.24 or later.
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+Or with Go 1.24 or later:
 
 ```sh
 go install github.com/lonedevel/commando/cmd/commando@v0.1.0
