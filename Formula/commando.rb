@@ -1,8 +1,8 @@
 class Commando < Formula
   desc "Colorful TUI that turns a command's man page into a form for its options"
   homepage "https://github.com/lonedevel/commando"
-  url "https://github.com/lonedevel/commando/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "cc8cc926c202cc0e448b5a8f7678b2d57e8af14833cf7020e430375406bb7340"
+  url "https://github.com/lonedevel/commando/archive/refs/tags/v0.2.0.tar.gz"
+  sha256 "42a718d694cb92f8f59a5e398e1287ab51447fff4107cc3e6e69d17bd642db43"
   license "Apache-2.0"
   head "https://github.com/lonedevel/commando.git", branch: "main"
 
