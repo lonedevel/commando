@@ -9,31 +9,7 @@ the command you built.
 commando ls
 ```
 
-```
- ◆ commando  ls — list directory contents                                  59 options from man page in 12ms
-╭─ Options · 59 total · 3 set ───────────────────────────────────╮╭─ Help ─────────────────────────────────╮
-│ ⌕ press / or ^F to filter options                           1% ││ --color [WHEN]                         │
-│ ━━ Options ─────────────────────────────────────────────────── ││  choice  Description                   │
-│   [✓] Do not ignore entries starting with .    -a, --all       ││ Values: auto · never · always          │
-│   [ ] Do not list implied . and ..             -A, --almost-a… ││                                        │
-│   [ ] With -l, print the author of each file   --author        ││ Color the output WHEN; more info below │
-│   [ ] Print C-style escapes for nongraphic ch… -b, --escape    ││                                        │
-│   [ ] With -l, scale sizes by… [size         ] --block-size    ││ More from the manual                   │
-│   [ ] Do not list implied entries ending with… -B, --ignore-b… ││ The WHEN argument defaults to 'always' │
-│   [ ] With -lt: sort by, and show, ctime (tim… -c              ││ and can also be 'auto' or 'never'.     │
-│   [ ] List entries by columns                  -C              ││                                        │
-│ ❯ [✓] Color the output when    [auto        ▾] --color         ││ Using color to distinguish file types  │
-│         │   (not set)                                          ││ is disabled both by default and with   │
-│         │   auto ✓                                             ││ --color=never. With --color=auto, ls   │
-│         │   never                                              ││ emits color codes only when standard   │
-│         │ ▸ always                                             ││ output is connected to a terminal. The │
-│         │   ✎ custom value…                                    ││   ↓ 3 more lines · shift+↓ to scroll … │
-╰────────────────────────────────────────────────────────────────╯╰────────────────────────────────────────╯
-╭─ Command · ⏎ to run ─────────────────────────────────────────────────────────────────────────────────────╮
-│ ❯ ls -al --color=auto ~/src                                                                              │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────────────╯
- ↑↓ choose • ⏎/space select • esc close
-```
+![commando editing an ls command: flags checked, the --color dropdown open, and the help panel explaining the option](docs/screenshot.png)
 
 ## Features
 
