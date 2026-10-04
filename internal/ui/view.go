@@ -50,6 +50,9 @@ func (m *Model) viewPick() string {
 	lines = append(lines, m.pick.View())
 	if len(m.sugg) > 0 {
 		lines = append(lines, "")
+		if m.suggRecent {
+			lines = append(lines, sHeader.Render("Recent"))
+		}
 		for i, s := range m.sugg {
 			if i == m.suggSel {
 				lines = append(lines, sCursor.Render("  ▸ ")+sCmd.Render(s))
@@ -172,11 +175,20 @@ func (m *Model) viewForm() string {
 	if set > 0 {
 		listTitle += sDim.Render(" · ") + sOn.Render(itoa(set)+" set")
 	}
-	listBox := box(listTitle, m.listBody(listW-4, listH-2), listW, listH, cViolet)
+	var listBox string
+	if m.lib {
+		listBox = box(sHeader.Render("Presets & recent")+sDim.Render(" · "+m.spec.Command), m.libraryBody(listW-4, listH-2), listW, listH, cViolet)
+	} else {
+		listBox = box(listTitle, m.listBody(listW-4, listH-2), listW, listH, cViolet)
+	}
 
 	var mid string
 	if helpH > 0 {
-		helpBox := box(sHeader.Render(m.helpTitle()), m.helpBody(helpW-4, helpH-2), helpW, helpH, cCyan)
+		helpBody := m.helpBody
+		if m.lib {
+			helpBody = func(w, h int) []string { return m.scrollHelp(m.libraryHelp(w), h) }
+		}
+		helpBox := box(sHeader.Render(m.helpTitle()), helpBody(helpW-4, helpH-2), helpW, helpH, cCyan)
 		if side {
 			mid = lipgloss.JoinHorizontal(lipgloss.Top, listBox, helpBox)
 		} else {
@@ -189,15 +201,21 @@ func (m *Model) viewForm() string {
 	cmdBox := box(sHeader.Render("Command")+sDim.Render(" · ⏎ to run"), m.commandLines(m.w-4), m.w, cmdH, cPink)
 
 	var foot string
-	if m.status != "" {
+	switch {
+	case m.naming:
+		foot = " " + sKey.Render("Save preset as: ") + m.presetIn.View() + sFaint.Render("  ⏎ save • esc cancel")
+	case m.status != "":
 		foot = " " + m.statusView()
-	} else {
+	default:
 		foot = " " + m.footerKeys()
 	}
 	return title + "\n" + mid + "\n" + cmdBox + "\n" + fit(foot, m.w)
 }
 
 func (m *Model) helpTitle() string {
+	if m.lib {
+		return "Preview"
+	}
 	r := m.curRow()
 	if r == nil || r.kind == rowArgs {
 		return "About " + m.spec.Command
@@ -207,6 +225,9 @@ func (m *Model) helpTitle() string {
 
 func (m *Model) footerKeys() string {
 	var pairs [][2]string
+	if m.lib {
+		return keyHelp([][2]string{{"↑↓", "choose"}, {"⏎", "load"}, {"d", "delete"}, {"esc", "back to form"}})
+	}
 	if m.filtering {
 		pairs = [][2]string{{"type", "filter"}, {"↓/⏎", "to list"}, {"esc", "clear"}}
 		return keyHelp(pairs)
@@ -241,7 +262,8 @@ func (m *Model) footerKeys() string {
 		}
 	}
 	pairs = append(pairs, [2]string{"↑↓", "move"}, [2]string{"⏎", "run"}, [2]string{"^F", "filter"},
-		[2]string{"^O", "manual"}, [2]string{"^Y", "copy"}, [2]string{"^S", "long/short"}, [2]string{"esc", "quit"})
+		[2]string{"^O", "manual"}, [2]string{"^L", "presets"}, [2]string{"^T", "save preset"},
+		[2]string{"^Y", "copy"}, [2]string{"^S", "long/short"}, [2]string{"esc", "quit"})
 	return keyHelp(pairs)
 }
 

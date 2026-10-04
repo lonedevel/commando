@@ -19,6 +19,9 @@ func (m *Model) updatePick(k tea.KeyMsg) tea.Cmd {
 		return tea.Quit
 	case "enter":
 		line := strings.TrimSpace(m.pick.Value())
+		if line == "" && m.suggRecent && m.suggSel >= 0 && m.suggSel < len(m.sugg) {
+			line = m.sugg[m.suggSel]
+		}
 		if line == "" {
 			return nil
 		}
@@ -62,6 +65,18 @@ func (m *Model) updateSuggestions() {
 	q := m.pick.Value()
 	m.sugg = nil
 	m.suggSel = -1
+	m.suggRecent = false
+	if q == "" && m.cfg.Store != nil {
+		// Nothing typed yet: offer recently run commands.
+		for _, e := range m.cfg.Store.AllRecent(maxSuggestions) {
+			m.sugg = append(m.sugg, e.Line)
+		}
+		if len(m.sugg) > 0 {
+			m.suggRecent = true
+			m.suggSel = 0
+		}
+		return
+	}
 	if q == "" || strings.Contains(q, " ") {
 		return
 	}
