@@ -68,7 +68,14 @@ commando ls
 
 ## Install
 
-Requires Go 1.24+.
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+Or with Go 1.24+:
 
 ```sh
 go install github.com/lonedevel/commando/cmd/commando@latest
