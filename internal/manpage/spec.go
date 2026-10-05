@@ -49,6 +49,7 @@ type Option struct {
 	Section      string   `json:"section,omitempty"`    // man (sub)section it was found in
 	Conflicts    []string `json:"conflicts,omitempty"`  // options turned off when this one is set
 	Notes        []string `json:"notes,omitempty"`      // related general paragraphs ("The WHEN argument ...")
+	Danger       string   `json:"danger,omitempty"`     // why the option is risky, e.g. "can delete or overwrite data"
 }
 
 // Group is a set of mutually exclusive boolean options, shown as radio buttons.

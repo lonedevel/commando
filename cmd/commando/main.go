@@ -147,7 +147,10 @@ func run(argv []string) int {
 	if !noHistory && os.Getenv("COMMANDO_NO_HISTORY") == "" {
 		st = store.Load()
 	}
-	model := ui.New(ui.Config{Line: line, UseCache: !noCache, PreferLong: long, Output: out, Store: st})
+	// Printing only puts the command on the prompt for review, so there is
+	// nothing to confirm.
+	confirm := !printOnly && os.Getenv("COMMANDO_NO_CONFIRM") == ""
+	model := ui.New(ui.Config{Line: line, UseCache: !noCache, PreferLong: long, Output: out, Store: st, Confirm: confirm})
 	p := tea.NewProgram(model,
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),

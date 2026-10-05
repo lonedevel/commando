@@ -30,6 +30,11 @@ commando ls
   own subsections (e.g. grep's *Matching Control*, tar's *Operation mode*).
 - **Help as you go.** The side panel explains the focused option in full;
   `^O` opens the whole manual, scrolled to that option, with `/` search.
+- **Warnings for risky options.** Options that delete or overwrite data, or
+  that skip a confirmation prompt (`rm -r`, `rm -f`, `rsync --delete`,
+  `find -delete`, `tar --remove-files`, `git push --force`…), are marked with
+  a red ⚠ and the help panel says why. If the command you built uses one,
+  Enter asks you to confirm before running it.
 - **Conflicts handled.** When the manual says an option is mutually exclusive
   with another (“This option cancels the -P option”), turning one on turns
   the other off.
@@ -54,6 +59,13 @@ With Homebrew (macOS or Linux; installs a prebuilt binary, no Go needed):
 ```sh
 brew tap lonedevel/commando https://github.com/lonedevel/commando
 brew install commando
+```
+
+To upgrade, refresh the tap first (Homebrew only updates it during
+`brew update`, which `brew upgrade` skips if it ran recently):
+
+```sh
+brew update && brew upgrade commando
 ```
 
 Or with Go 1.24+:
@@ -86,6 +98,11 @@ commando --long rsync    # prefer --long option names
 When you press Enter, commando prints the final command and runs it with
 your `$SHELL`. With `-p/--print` it writes the command to stdout instead, so
 you can capture it: `cmd=$(commando -p find)`.
+
+If the command uses an option marked ⚠ (it can delete or overwrite data),
+Enter first asks "Run it?": press `y` to run, any other key to go back to
+the form. `-p` and the shell shortcut don't ask, since they only put the
+command on your prompt. Set `COMMANDO_NO_CONFIRM=1` to never ask.
 
 ### Shell integration (recommended)
 
