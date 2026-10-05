@@ -1,5 +1,37 @@
 # Release notes
 
+## v0.3.0
+
+More options are now dropdowns, using the value lists your shell already knows.
+
+### New: values from shell completions
+
+- commando now reads the completion definitions that ship with zsh (always present on macOS) and fish (when installed). Where they list the exact values an option takes, the option becomes a dropdown: for example `tar --format` (gnu, pax, ustar…), `grep --binary-files` (binary, without-match, text) and `rsync -e` (rsh, ssh). With fish installed, `curl -X` also lists the HTTP methods.
+- Values found in the man page are still offered after the shell's, and the "custom value…" entry is always there.
+- The help panel says when an option's values came from zsh or fish.
+- `COMMANDO_NO_COMPLETIONS=1` turns this off. `COMMANDO_ZSH_COMPLETIONS` and `COMMANDO_FISH_COMPLETIONS` (colon-separated folders) add places to look.
+
+### Fixes
+
+- Filtering for an option name now prefers an exact-case match, so typing `-X` goes to `-X`, not `-x`.
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando        # or: brew upgrade commando
+```
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.3.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.2.0
 
 commando now remembers what you run, and lets you save a form you use often as a named preset.
