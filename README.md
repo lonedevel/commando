@@ -163,9 +163,10 @@ bottom, `/` search, `n`/`N` next and previous match, `Esc` back.
    values (“e.g. 200K, 3m”) are not mistaken for choices.
 4. The shells' own completion definitions add more value lists. zsh's
    (which macOS always ships) and fish's, if installed, often spell out the
-   exact values an option takes: `curl -X` gets GET, POST, PUT and the other
-   HTTP methods, `tar --format` gets gnu, pax, ustar and so on. The help
-   panel says when values came from there. Set `COMMANDO_NO_COMPLETIONS=1` to
+   exact values an option takes: `tar --format` gets gnu, pax, ustar and so
+   on, and `grep --binary-files` gets binary, without-match and text. With
+   fish installed, `curl -X` also gets the HTTP methods. The help panel says
+   when values came from there. Set `COMMANDO_NO_COMPLETIONS=1` to
    turn this off, or point `COMMANDO_ZSH_COMPLETIONS` /
    `COMMANDO_FISH_COMPLETIONS` (colon-separated folders) at extra
    definitions.
