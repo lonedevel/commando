@@ -1,0 +1,17 @@
+#compdef frob gfrob
+
+# Sample in the style of zsh's _arguments specs.
+local -a args
+args=(
+  '(-a --all)'{-a,--all}'[show everything]'
+  '--color=-[control use of color]:color:(never always auto)'
+  '(--sort -S)--sort=[specify sort key]:sort key:(size time none)'
+  '(--directories -d)'{--directories=,-d+}'[specify handling of directories]:action:(read skip recurse)'
+  '(--colour --tint)--'{colour,tint}'=-[distinguish matches]::when:(always never)'
+  '--quoting=[quoting style]:style:((literal\:"as is" shell\:"quote for the shell" c\:"C escapes"))'
+  '--format=*:format:(gnu pax ustar)'
+  '--output=[write to file]:file:_files'
+  '--level=[compression level]:level:(1 2 3)'
+  '--weird=[computed]:val:($values)'
+)
+_arguments -s $args

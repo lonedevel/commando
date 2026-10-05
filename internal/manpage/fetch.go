@@ -240,6 +240,7 @@ func LoadLine(ctx context.Context, words []string, useCache bool) (*Spec, int, e
 			return ss, 2, nil
 		}
 	}
+	ApplyCompletions(s, completionsFor(words[:1]))
 	return s, 1, nil
 }
 

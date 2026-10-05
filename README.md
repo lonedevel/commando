@@ -18,8 +18,9 @@ commando ls
   for tools that ship without one (cargo, rustc, many Go/Node CLIs).
 - **The right control for each option:**
   - flags → checkboxes (repeatable flags such as `-v` count up with ←/→)
-  - enumerated values → dropdowns (`--color` → always / auto / never), with
-    a "custom value…" entry in case the manual is incomplete
+  - enumerated values → dropdowns (`--color` → always / auto / never),
+    taken from the manual and from zsh and fish completion definitions,
+    with a "custom value…" entry in case a list is incomplete
   - mutually exclusive flags → radio buttons (“The -1, -C, -x, and -l
     options all override each other” becomes a *Format* group)
   - numbers → digit-only fields with `+`/`-` stepping
@@ -160,7 +161,15 @@ bottom, `/` search, `n`/`N` next and previous match, `Esc` back.
    auto”, “If *TYPE* is without-match…”, “sort by WORD instead of name: none
    (-U), size (-S)…”, `{a,b,c}` and clap's `[possible values: …]`. Sample
    values (“e.g. 200K, 3m”) are not mistaken for choices.
-4. The result is cached as JSON in `~/Library/Caches/commando` (macOS) or
+4. The shells' own completion definitions add more value lists. zsh's
+   (which macOS always ships) and fish's, if installed, often spell out the
+   exact values an option takes: `curl -X` gets GET, POST, PUT and the other
+   HTTP methods, `tar --format` gets gnu, pax, ustar and so on. The help
+   panel says when values came from there. Set `COMMANDO_NO_COMPLETIONS=1` to
+   turn this off, or point `COMMANDO_ZSH_COMPLETIONS` /
+   `COMMANDO_FISH_COMPLETIONS` (colon-separated folders) at extra
+   definitions.
+5. The parsed manual is cached as JSON in `~/Library/Caches/commando` (macOS) or
    `$XDG_CACHE_HOME/commando`. Set `COMMANDO_CACHE_DIR` to change it, or pass
    `--no-cache`.
 

@@ -454,7 +454,7 @@ func (m *Model) applyFilter() {
 			if m.rows[ri].kind != rowOpt {
 				continue
 			}
-			if sc := m.score(m.rows[ri].opt, q); sc > bestScore {
+			if sc := m.score(m.rows[ri].opt, strings.Fields(m.filter.Value())); sc > bestScore {
 				best, bestScore = k, sc
 			}
 		}
@@ -465,15 +465,21 @@ func (m *Model) applyFilter() {
 	m.helpScroll = 0
 }
 
-func (m *Model) score(i int, q []string) int {
+// score ranks an option against the filter words: exact names first (a
+// same-case match beating one that differs only in case, so -X finds -X,
+// not -x), then name prefixes, then names and labels containing the word.
+func (m *Model) score(i int, raw []string) int {
 	o := &m.spec.Options[i]
 	label := strings.ToLower(o.Label)
 	total := 0
-	for _, t := range q {
+	for _, r := range raw {
+		t := strings.ToLower(r)
 		best := 1
-		for _, n := range o.Names {
-			n = strings.ToLower(n)
+		for _, orig := range o.Names {
+			n := strings.ToLower(orig)
 			switch {
+			case orig == r || strings.TrimLeft(orig, "-") == r:
+				best = max(best, 120)
 			case n == t || strings.TrimLeft(n, "-") == t:
 				best = max(best, 100)
 			case strings.HasPrefix(strings.TrimLeft(n, "-"), strings.TrimLeft(t, "-")):

@@ -40,12 +40,15 @@ type Option struct {
 	LongEquals  bool     `json:"long_equals,omitempty"`  // long form written as --name=ARG
 	Kind        Kind     `json:"kind"`
 	Choices     []string `json:"choices,omitempty"`
-	Repeatable  bool     `json:"repeatable,omitempty"` // e.g. -v -v -v
-	Label       string   `json:"label"`                // short human label
-	Desc        string   `json:"desc"`                 // full description, paragraphs split by "\n\n"
-	Section     string   `json:"section,omitempty"`    // man (sub)section it was found in
-	Conflicts   []string `json:"conflicts,omitempty"`  // options turned off when this one is set
-	Notes       []string `json:"notes,omitempty"`      // related general paragraphs ("The WHEN argument ...")
+	// ChoiceSource is "zsh" or "fish" when Choices came from that shell's
+	// completion definitions, empty when inferred from the manual.
+	ChoiceSource string   `json:"choice_source,omitempty"`
+	Repeatable   bool     `json:"repeatable,omitempty"` // e.g. -v -v -v
+	Label        string   `json:"label"`                // short human label
+	Desc         string   `json:"desc"`                 // full description, paragraphs split by "\n\n"
+	Section      string   `json:"section,omitempty"`    // man (sub)section it was found in
+	Conflicts    []string `json:"conflicts,omitempty"`  // options turned off when this one is set
+	Notes        []string `json:"notes,omitempty"`      // related general paragraphs ("The WHEN argument ...")
 }
 
 // Group is a set of mutually exclusive boolean options, shown as radio buttons.
