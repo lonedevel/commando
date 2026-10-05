@@ -17,6 +17,7 @@ import (
 
 	"github.com/lonedevel/commando/internal/cmdline"
 	"github.com/lonedevel/commando/internal/manpage"
+	"github.com/lonedevel/commando/internal/shellword"
 	"github.com/lonedevel/commando/internal/store"
 )
 
@@ -92,24 +93,26 @@ type Model struct {
 	loadWhat   string
 
 	// form mode
-	spec       *manpage.Spec
-	values     []cmdline.Value
-	inputs     map[int]*textinput.Model // per text-like option
-	args       textinput.Model
-	filter     textinput.Model
-	filtering  bool
-	rows       []row
-	vis        []int // indexes into rows
-	haystack   []string
-	cursor     int // index into vis
-	offset     int // first visible list line
-	dropdown   bool
-	ddSel      int
-	customEdit int // option index whose dropdown value is being typed, or -1
-	helpScroll int
-	preferLong bool
-	listTop    int   // screen row of first list line (for mouse)
-	lineRows   []int // vis index per rendered list line (for mouse)
+	spec          *manpage.Spec
+	values        []cmdline.Value
+	inputs        map[int]*textinput.Model // per text-like option
+	args          textinput.Model
+	argInputs     []*textinput.Model // one per positional argument, when the usage line was readable
+	warnedMissing bool               // Enter was pressed once with required arguments empty
+	filter        textinput.Model
+	filtering     bool
+	rows          []row
+	vis           []int // indexes into rows
+	haystack      []string
+	cursor        int // index into vis
+	offset        int // first visible list line
+	dropdown      bool
+	ddSel         int
+	customEdit    int // option index whose dropdown value is being typed, or -1
+	helpScroll    int
+	preferLong    bool
+	listTop       int   // screen row of first list line (for mouse)
+	lineRows      []int // vis index per rendered list line (for mouse)
 
 	// presets & recent (shown in place of the option list)
 	lib        bool
@@ -301,7 +304,7 @@ func (m *Model) onLoaded(msg loadedMsg) tea.Cmd {
 	m.buildRows()
 	m.mode = modeForm
 	m.cursor = 0
-	m.move(1) // start on the first option; Arguments stays one ↑ away
+	m.toFirstOption() // the argument fields stay just above
 	m.resizeInputs()
 	src := "man page"
 	if m.spec.Source == "help" {
@@ -344,16 +347,119 @@ func (m *Model) fill(rest []cmdline.Word) {
 			m.values[mi].On = mi == last
 		}
 	}
+	m.argInputs = nil
+	if len(m.spec.Args) > 0 {
+		parts := distributeArgs(m.spec.Args, shellword.Split(args))
+		for i, a := range m.spec.Args {
+			ph := strings.ToLower(a.Name)
+			if a.Repeat {
+				ph += " …"
+			}
+			ti := newInput(ph)
+			ti.SetValue(parts[i])
+			ti.CursorEnd()
+			m.argInputs = append(m.argInputs, &ti)
+		}
+		args = ""
+	}
 	m.args.SetValue(args)
 	m.args.CursorEnd()
 	m.resizeInputs()
 }
 
+// distributeArgs assigns typed words to argument fields in order: single
+// arguments take one word each, a repeatable one takes what the arguments
+// after it don't need, and anything left over goes to the last field.
+func distributeArgs(args []manpage.Arg, words []shellword.Word) []string {
+	out := make([]string, len(args))
+	k := 0
+	for i, a := range args {
+		n := 1
+		if a.Repeat {
+			after := 0
+			for _, b := range args[i+1:] {
+				if !b.Repeat {
+					after++
+				}
+			}
+			n = max(0, len(words)-k-after)
+		}
+		var raw []string
+		for ; n > 0 && k < len(words); n-- {
+			raw = append(raw, words[k].Raw)
+			k++
+		}
+		out[i] = strings.Join(raw, " ")
+	}
+	for ; k < len(words); k++ {
+		out[len(out)-1] = strings.TrimSpace(out[len(out)-1] + " " + words[k].Raw)
+	}
+	return out
+}
+
+// argsText is the positional-argument text, in order.
+func (m *Model) argsText() string {
+	if len(m.argInputs) == 0 {
+		return m.args.Value()
+	}
+	var parts []string
+	for _, ti := range m.argInputs {
+		if v := strings.TrimSpace(ti.Value()); v != "" {
+			parts = append(parts, v)
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+// argInput returns the text field for an Arguments row.
+func (m *Model) argInput(r *row) *textinput.Model {
+	if r.opt >= 0 && r.opt < len(m.argInputs) {
+		return m.argInputs[r.opt]
+	}
+	return &m.args
+}
+
+// argSpec returns the positional argument an Arguments row edits, if any.
+func (m *Model) argSpec(r *row) (manpage.Arg, bool) {
+	if r != nil && r.kind == rowArgs && r.opt >= 0 && r.opt < len(m.spec.Args) {
+		return m.spec.Args[r.opt], true
+	}
+	return manpage.Arg{}, false
+}
+
+// missingArgs lists required arguments that are still empty.
+func (m *Model) missingArgs() []string {
+	var names []string
+	for i, a := range m.spec.Args {
+		if a.Required && i < len(m.argInputs) && strings.TrimSpace(m.argInputs[i].Value()) == "" {
+			names = append(names, a.Name)
+		}
+	}
+	return names
+}
+
+func (m *Model) blurInputs() {
+	m.args.Blur()
+	for _, ti := range m.argInputs {
+		ti.Blur()
+	}
+	for _, ti := range m.inputs {
+		ti.Blur()
+	}
+}
+
 // buildRows lays out the form: sections, radio groups and options.
 func (m *Model) buildRows() {
 	s := m.spec
-	m.rows = []row{{kind: rowArgs, group: -1}}
+	m.rows = []row{{kind: rowArgs, opt: -1, group: -1}}
 	m.haystack = []string{""}
+	if len(s.Args) > 0 {
+		m.rows, m.haystack = nil, nil
+		for i := range s.Args {
+			m.rows = append(m.rows, row{kind: rowArgs, opt: i, group: -1})
+			m.haystack = append(m.haystack, "")
+		}
+	}
 	placed := map[int]bool{}
 	cur := "\x00"
 	nsections := map[string]bool{}
@@ -514,7 +620,7 @@ func (m *Model) textInputFor(r *row) *textinput.Model {
 		return nil
 	}
 	if r.kind == rowArgs {
-		return &m.args
+		return m.argInput(r)
 	}
 	if r.kind != rowOpt {
 		return nil
@@ -532,10 +638,7 @@ func (m *Model) textInputFor(r *row) *textinput.Model {
 }
 
 func (m *Model) focusCurrent() tea.Cmd {
-	m.args.Blur()
-	for _, ti := range m.inputs {
-		ti.Blur()
-	}
+	m.blurInputs()
 	if m.lib || m.naming {
 		m.filter.Blur()
 		return nil
@@ -570,6 +673,19 @@ func (m *Model) move(delta int) tea.Cmd {
 	m.dropdown = false
 	m.helpScroll = 0
 	return m.focusCurrent()
+}
+
+// toFirstOption puts the cursor on the first option row, or the first
+// argument field when the command has no options.
+func (m *Model) toFirstOption() tea.Cmd {
+	for k, ri := range m.vis {
+		if m.rows[ri].kind == rowOpt {
+			m.cursor = k
+			return m.move(0)
+		}
+	}
+	m.cursor = 0
+	return m.move(0)
 }
 
 func (m *Model) moveTo(n int) tea.Cmd {
@@ -666,7 +782,7 @@ func (m *Model) tokens() []cmdline.Token {
 	if m.spec == nil {
 		return nil
 	}
-	return cmdline.Build(m.spec, m.values, m.args.Value(), m.preferLong)
+	return cmdline.Build(m.spec, m.values, m.argsText(), m.preferLong)
 }
 
 // riskyInUse lists the set options that delete or overwrite data.
@@ -682,6 +798,10 @@ func (m *Model) riskyInUse() []string {
 
 func (m *Model) accept() tea.Cmd {
 	m.commitCustom()
+	if missing := m.missingArgs(); len(missing) > 0 && !m.warnedMissing {
+		m.warnedMissing = true
+		return m.setStatus(strings.Join(missing, ", ")+" looks required. Fill it in, or press ⏎ again to run anyway.", true)
+	}
 	if m.cfg.Confirm && m.confirming == nil {
 		if risky := m.riskyInUse(); len(risky) > 0 {
 			m.confirming = risky
@@ -696,6 +816,9 @@ func (m *Model) accept() tea.Cmd {
 
 func (m *Model) updateForm(k tea.KeyMsg) tea.Cmd {
 	key := k.String()
+	if key != "enter" {
+		m.warnedMissing = false
+	}
 	if m.confirming != nil {
 		if key == "y" || key == "Y" {
 			return m.accept()
@@ -805,13 +928,18 @@ func (m *Model) updateForm(k tea.KeyMsg) tea.Cmd {
 			t.SetValue("")
 		}
 		m.args.SetValue("")
+		for _, t := range m.argInputs {
+			t.SetValue("")
+		}
 		return m.setStatus("Cleared all options", false)
 	case "up", "ctrl+p", "shift+tab":
 		return m.move(-1)
 	case "down", "ctrl+n":
 		return m.move(1)
 	case "tab":
-		if ti != nil && (r.kind == rowArgs || m.spec.Options[r.opt].Kind == manpage.KindPath) {
+		a, isArg := m.argSpec(r)
+		pathArg := r.kind == rowArgs && (!isArg || a.Path)
+		if ti != nil && (pathArg || (r.kind == rowOpt && m.spec.Options[r.opt].Kind == manpage.KindPath)) {
 			if done, cmd := m.complete(ti, r.kind == rowArgs); done {
 				return cmd
 			}

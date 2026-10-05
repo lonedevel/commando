@@ -115,6 +115,9 @@ func (m *Model) resizeInputs() {
 		ti.Width = max(4, widgetW-3)
 	}
 	m.args.Width = max(8, nameW+widgetW-2)
+	for _, ti := range m.argInputs {
+		ti.Width = m.args.Width
+	}
 	m.filter.Width = max(8, listW-10)
 }
 
@@ -220,6 +223,9 @@ func (m *Model) helpTitle() string {
 		return "Preview"
 	}
 	r := m.curRow()
+	if _, isArg := m.argSpec(r); isArg {
+		return "Help"
+	}
 	if r == nil || r.kind == rowArgs {
 		return "About " + m.spec.Command
 	}
@@ -245,7 +251,10 @@ func (m *Model) footerKeys() string {
 	if r != nil {
 		switch {
 		case r.kind == rowArgs:
-			pairs = append(pairs, [2]string{"type", "arguments"}, [2]string{"tab", "complete path"})
+			pairs = append(pairs, [2]string{"type", "arguments"})
+			if a, isArg := m.argSpec(r); !isArg || a.Path {
+				pairs = append(pairs, [2]string{"tab", "complete path"})
+			}
 		case r.kind == rowOpt:
 			switch m.spec.Options[r.opt].Kind {
 			case manpage.KindFlag:
@@ -393,20 +402,35 @@ func (m *Model) renderRow(k, labelW, nameW, widgetW, inner int) string {
 	case rowGroup:
 		return "  " + sGroup.Render("◇ "+r.text) + sDim.Render(" · choose one")
 	case rowArgs:
-		label := sArg.Bold(true).Render("Arguments")
-		if sel {
-			label = sCursor.Render("Arguments")
+		name := "Arguments"
+		a, isArg := m.argSpec(&r)
+		if isArg {
+			name = a.Label()
+			if a.Repeat {
+				name += "…"
+			}
 		}
+		label := sArg.Bold(true).Render(name)
+		if sel {
+			label = sCursor.Render(name)
+		}
+		if isArg && a.Required {
+			label += sErr.Render(" *")
+		}
+		ti := m.argInput(&r)
 		wv := nameW + 1 + widgetW
 		if wv < 10 {
 			wv = inner - 6 - labelW - 1
 		}
 		var field string
-		if sel {
-			field = m.args.View()
-		} else if v := m.args.Value(); v != "" {
-			field = sArg.Render(v)
-		} else {
+		switch {
+		case sel:
+			field = ti.View()
+		case ti.Value() != "":
+			field = sArg.Render(ti.Value())
+		case isArg:
+			field = sFaint.Render(ti.Placeholder)
+		default:
 			field = sFaint.Render(strings.ToLower(argHint(m.spec)))
 		}
 		return marker + sArg.Render("»") + "   " + fit(label, labelW) + " " + bracket(field, wv, sel)
@@ -552,6 +576,28 @@ func (m *Model) helpBody(w, h int) []string {
 	var lines []string
 	add := func(s ...string) { lines = append(lines, s...) }
 	r := m.curRow()
+	if a, isArg := m.argSpec(r); isArg {
+		name := a.Name
+		if a.Repeat {
+			name += " …"
+		}
+		add(sArg.Bold(true).Render(name))
+		tags := badge("optional", cDim)
+		if a.Required {
+			tags = badge("required", cRed)
+		}
+		if a.Path {
+			tags += " " + badge("path", cBlue)
+		}
+		add(tags)
+		if a.Repeat {
+			add(dimWrap("Takes several values: separate them with spaces.", w)...)
+		}
+		if a.Path {
+			add(dimWrap("Tab completes file and folder names.", w)...)
+		}
+		add("")
+	}
 	if r == nil || r.kind != rowOpt {
 		if m.spec.Summary != "" {
 			add(sCmd.Render(m.spec.Command)+sDim.Render(" — ")+sText.Render(m.spec.Summary), "")

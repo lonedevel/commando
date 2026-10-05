@@ -25,6 +25,11 @@ commando ls
     options all override each other” becomes a *Format* group)
   - numbers → digit-only fields with `+`/`-` stepping
   - files and directories → path fields with Tab completion
+  - positional arguments → a labelled field each, read from the usage line
+    (`cp SOURCE DEST` gets Source and Dest; `grep PATTERNS [FILE...]` gets
+    Patterns and File…). Required ones are marked `*`, and Enter warns once
+    if one is empty. When a usage line is too irregular to read (tar, curl),
+    there's a single Arguments field instead
 - **Readable labels.** Each option gets a label taken from the first sentence
   of its description, alongside its flag names and grouped under the manual's
   own subsections (e.g. grep's *Matching Control*, tar's *Operation mode*).

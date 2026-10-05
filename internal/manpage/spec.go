@@ -65,6 +65,7 @@ type Spec struct {
 	Synopsis    string   `json:"synopsis"`
 	Description string   `json:"description"`
 	Options     []Option `json:"options"`
+	Args        []Arg    `json:"args,omitempty"` // positional arguments; nil means use one free-text field
 	Groups      []Group  `json:"groups,omitempty"`
 	Manual      string   `json:"manual"` // cleaned full text, for the manual viewer
 	Source      string   `json:"source"` // "man" or "help"
