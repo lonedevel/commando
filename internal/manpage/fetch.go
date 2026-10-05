@@ -18,7 +18,7 @@ import (
 )
 
 // parserVersion is part of the cache key; bump it when parsing changes.
-const parserVersion = "7"
+const parserVersion = "8"
 
 // RenderWidth is the column width manual pages are rendered at.
 const RenderWidth = 100
@@ -64,6 +64,7 @@ func Load(ctx context.Context, words []string, useCache bool) (*Spec, error) {
 		text, err := renderMan(ctx, page)
 		if err == nil && strings.Count(text, "\n") > 3 {
 			s := Parse(display, Clean(text), "man")
+			s.Page = path
 			if len(s.Options) > 0 || s.Summary != "" {
 				writeCache(key, s)
 				return s, nil
@@ -189,7 +190,7 @@ func readCache(key string) *Spec {
 	return &s
 }
 
-func writeCache(key string, s *Spec) {
+func writeCache(key string, v any) {
 	dir := cacheDir()
 	if dir == "" {
 		return
@@ -197,7 +198,7 @@ func writeCache(key string, s *Spec) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return
 	}
-	b, err := json.Marshal(s)
+	b, err := json.Marshal(v)
 	if err != nil {
 		return
 	}

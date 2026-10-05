@@ -67,8 +67,9 @@ type Spec struct {
 	Options     []Option `json:"options"`
 	Args        []Arg    `json:"args,omitempty"` // positional arguments; nil means use one free-text field
 	Groups      []Group  `json:"groups,omitempty"`
-	Manual      string   `json:"manual"` // cleaned full text, for the manual viewer
-	Source      string   `json:"source"` // "man" or "help"
+	Manual      string   `json:"manual"`         // cleaned full text, for the manual viewer
+	Source      string   `json:"source"`         // "man" or "help"
+	Page        string   `json:"page,omitempty"` // the manual page file, when Source is "man"
 }
 
 // Short returns the option's single-dash names.

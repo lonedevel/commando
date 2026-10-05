@@ -45,6 +45,7 @@ const (
 	modeLoading
 	modeForm
 	modeManual
+	modeSub // choosing a subcommand of a tool such as git
 )
 
 type rowKind int
@@ -69,6 +70,7 @@ type loadedMsg struct {
 	err     error
 	elapsed time.Duration
 	cmd     string
+	subs    []manpage.Subcommand // the tool's commands, when it was opened without one
 }
 
 type statusClearMsg int
@@ -122,7 +124,18 @@ type Model struct {
 	confirming []string // risky options awaiting "run anyway?" confirmation
 	presetIn   textinput.Model
 
+	// subcommand browser
+	toolMsg   loadedMsg // the tool itself, as loaded, to reopen its own form
+	subs      []manpage.Subcommand
+	subItems  []subItem
+	subSel    int
+	subOff    int
+	subFilter textinput.Model
+	fromSubs  bool   // the form was opened from the browser; Esc goes back to it
+	subPicked string // the subcommand line being loaded from the browser
+
 	// manual mode
+	manBack   mode // where Esc returns to
 	manLines  []string
 	manOff    int
 	manSearch textinput.Model
@@ -151,6 +164,7 @@ func New(cfg Config) *Model {
 	m.filter.Prompt = ""
 	m.presetIn = newInput("e.g. long listing with sizes")
 	m.presetIn.Prompt = ""
+	m.subFilter = newInput("type a command name or what it does")
 	m.manSearch = newInput("search manual")
 	m.manSearch.Prompt = "/"
 
@@ -212,7 +226,11 @@ func (m *Model) load(line string) tea.Cmd {
 		spec, n, err := manpage.LoadLine(context.Background(), vals, useCache)
 		rest := words[min(n, len(words)):]
 		name := strings.Join(vals[:max(1, n)], " ")
-		return loadedMsg{spec: spec, rest: rest, err: err, elapsed: time.Since(start), cmd: name}
+		var subs []manpage.Subcommand
+		if err == nil && n == 1 && len(rest) == 0 {
+			subs = manpage.Subcommands(spec, useCache)
+		}
+		return loadedMsg{spec: spec, rest: rest, err: err, elapsed: time.Since(start), cmd: name, subs: subs}
 	}
 }
 
@@ -282,6 +300,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.updateForm(msg)
 		case modeManual:
 			return m, m.updateManual(msg)
+		case modeSub:
+			return m, m.updateSubs(msg)
 		}
 	}
 	// Forward cursor blink and other messages to the focused input.
@@ -289,6 +309,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) onLoaded(msg loadedMsg) tea.Cmd {
+	if msg.err != nil && m.fromSubs {
+		cmd := m.openSubs()
+		return tea.Batch(cmd, m.setStatus(msg.err.Error(), true))
+	}
+	if len(msg.subs) > 0 {
+		// A tool opened without a command: choose one first.
+		m.toolMsg = msg
+		m.toolMsg.subs = nil
+		m.subs = msg.subs
+		m.subFilter.SetValue("")
+		return m.openSubs()
+	}
 	if msg.err != nil {
 		m.mode = modePick
 		m.pickErr = msg.err.Error()
@@ -312,12 +344,18 @@ func (m *Model) onLoaded(msg loadedMsg) tea.Cmd {
 	}
 	m.loadInfo = fmt.Sprintf("%d options from %s in %s", len(m.spec.Options), src, msg.elapsed.Round(time.Millisecond))
 	m.manLines = colorizeManual(m.spec.Manual)
+	var note tea.Cmd
+	if m.subPicked != "" && msg.cmd != m.subPicked {
+		// No option list for the command itself: its name stays as an argument.
+		note = m.setStatus("No option list for "+m.subPicked+", so this is "+msg.cmd+"'s form with the command as an argument", false)
+	}
+	m.subPicked = ""
 	// Offer saved presets and recent commands when starting from scratch.
 	if len(msg.rest) == 0 && m.loadLibrary() > 0 {
 		m.lib = true
 		m.libSel = 1 // the first preset (or latest command); Blank form is one ↑ away
 	}
-	return m.focusCurrent()
+	return tea.Batch(m.focusCurrent(), note)
 }
 
 // fill sets the form from command-line words that follow the command.
@@ -901,6 +939,9 @@ func (m *Model) updateForm(k tea.KeyMsg) tea.Cmd {
 			m.applyFilter()
 			return m.focusCurrent()
 		}
+		if m.fromSubs {
+			return m.openSubs()
+		}
 		m.result = Result{}
 		return tea.Quit
 	case "ctrl+f":
@@ -1151,6 +1192,10 @@ func (m *Model) forwardToFocused(msg tea.Msg) tea.Cmd {
 			m.manSearch, cmd = m.manSearch.Update(msg)
 			return cmd
 		}
+	case modeSub:
+		var cmd tea.Cmd
+		m.subFilter, cmd = m.subFilter.Update(msg)
+		return cmd
 	case modeForm:
 		if m.naming {
 			var cmd tea.Cmd
@@ -1179,6 +1224,16 @@ func (m *Model) onMouse(msg tea.MouseMsg) tea.Cmd {
 			m.scrollManual(-3)
 		case tea.MouseButtonWheelDown:
 			m.scrollManual(3)
+		}
+		return nil
+	case modeSub:
+		if n := len(m.subItems); n > 0 {
+			switch msg.Button {
+			case tea.MouseButtonWheelUp:
+				m.subSel = max(0, m.subSel-1)
+			case tea.MouseButtonWheelDown:
+				m.subSel = min(n-1, m.subSel+1)
+			}
 		}
 		return nil
 	case modeForm:

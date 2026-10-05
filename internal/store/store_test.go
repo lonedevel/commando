@@ -67,3 +67,21 @@ func TestLoadCorrupt(t *testing.T) {
 		t.Fatalf("save after corrupt load: %v", err)
 	}
 }
+
+func TestUnder(t *testing.T) {
+	t.Setenv("COMMANDO_DATA_DIR", t.TempDir())
+	s := Load()
+	now := time.Now()
+	s.AddRecent("git", "git --version", now.Add(-3*time.Minute))
+	s.AddRecent("git commit", "git commit -a", now.Add(-time.Minute))
+	s.AddRecent("git push", "git push", now.Add(-2*time.Minute))
+	s.AddRecent("gitk", "gitk --all", now)
+	s.SavePreset("git log", "pretty", "git log --oneline", now)
+	presets, recent := s.Under("git", 2)
+	if len(presets) != 1 || presets[0].Name != "pretty" {
+		t.Errorf("presets = %+v", presets)
+	}
+	if len(recent) != 2 || recent[0].Line != "git commit -a" || recent[1].Line != "git push" {
+		t.Errorf("recent = %+v", recent)
+	}
+}

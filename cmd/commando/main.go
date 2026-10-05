@@ -51,6 +51,7 @@ Flags:
 Examples:
   commando ls
   commando grep -rn TODO .        # pre-fills -r and -n
+  commando git                   # choose a git command, then its options
   commando git commit
   eval "$(commando --init zsh)"  # then press Ctrl-X Ctrl-O on any command line
 `
