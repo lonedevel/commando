@@ -16,6 +16,26 @@ jobs:
       - run: make lint
       - run: make test
       - run: make build
+      - name: Check macOS's zsh completions are used
+        if: runner.os == 'macOS'
+        run: |
+          ls -d /usr/share/zsh/*/functions
+          for c in ls tar grep curl cp rsync; do
+            ls /usr/share/zsh/*/functions/_$c 2>/dev/null || echo "no _$c"
+            ./bin/commando --dump "$c" > "$c.json" || true
+          done
+          python3 - <<'PY'
+          import json, os
+          found = 0
+          for c in ["ls", "tar", "grep", "curl", "cp", "rsync"]:
+              if not os.path.getsize(c + ".json"):
+                  continue
+              for o in json.load(open(c + ".json"))["options"]:
+                  if o.get("choice_source"):
+                      print(c, o["names"], o["choices"], "from", o["choice_source"])
+                      found += "zsh" in o["choice_source"]
+          assert found, "no option values came from zsh's completions"
+          PY
 
   homebrew:
     strategy:

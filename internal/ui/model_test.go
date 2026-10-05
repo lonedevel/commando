@@ -221,3 +221,15 @@ func TestPresetsAndRecent(t *testing.T) {
 		t.Error("library shown despite existing options")
 	}
 }
+
+func TestFilterPrefersExactCase(t *testing.T) {
+	m := newForm(t, "curl", "curl", 120, 40)
+	keys(m, "ctrl+f", "-", "X", "enter")
+	if r := m.curRow(); !m.spec.Options[r.opt].HasName("-X") {
+		t.Errorf("filter -X landed on %v", m.spec.Options[r.opt].Names)
+	}
+	keys(m, "esc", "ctrl+f", "-", "x", "enter")
+	if r := m.curRow(); !m.spec.Options[r.opt].HasName("-x") {
+		t.Errorf("filter -x landed on %v", m.spec.Options[r.opt].Names)
+	}
+}

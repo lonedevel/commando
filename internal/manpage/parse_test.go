@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/lonedevel/commando/internal/complete"
 )
 
 func load(t *testing.T, name string) *Spec {
@@ -314,4 +316,28 @@ func indexOfStr(list []string, s string) int {
 		}
 	}
 	return -1
+}
+
+func TestApplyCompletions(t *testing.T) {
+	s := load(t, "gnu-ls")
+	res := complete.Result{
+		Values: complete.Values{
+			"--block-size": {"K", "M", "G"},
+			"--sort":       {"size", "time", "status"},
+			"-w":           {"1", "2"}, // number options stay numbers
+		},
+		Sources: map[string]string{"--block-size": "zsh", "--sort": "zsh and fish", "-w": "zsh"},
+	}
+	ApplyCompletions(s, res)
+	if o := find(t, s, "--block-size"); o.Kind != KindChoice || o.ChoiceSource != "zsh" || !reflect.DeepEqual(o.Choices, []string{"K", "M", "G"}) {
+		t.Errorf("--block-size = %+v", o)
+	}
+	// Values from the manual are kept after the completion's.
+	want := []string{"size", "time", "status", "none", "version", "extension", "width"}
+	if o := find(t, s, "--sort"); !reflect.DeepEqual(o.Choices, want) || o.ChoiceSource != "zsh and fish" {
+		t.Errorf("--sort = %v (%s)", o.Choices, o.ChoiceSource)
+	}
+	if o := find(t, s, "--width"); o.Kind != KindNumber || o.ChoiceSource != "" {
+		t.Errorf("--width = %+v", o)
+	}
 }

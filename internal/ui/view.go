@@ -600,6 +600,9 @@ func (m *Model) helpBody(w, h int) []string {
 		add(sGroup.Render("◇ "+m.spec.Groups[g].Label) + sDim.Render(" — only one of these can be chosen"))
 	}
 	if len(o.Choices) > 0 {
+		if o.ChoiceSource != "" {
+			add(dimWrap("Values from the "+o.ChoiceSource+" shell completions", w)...)
+		}
 		vals := strings.Join(o.Choices, " · ")
 		for i, wl := range wrap("Values: "+vals, w) {
 			if i == 0 {
