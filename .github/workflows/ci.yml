@@ -16,6 +16,17 @@ jobs:
       - run: make lint
       - run: make test
       - run: make build
+      - name: Check macOS's zsh completions are used
+        if: runner.os == 'macOS'
+        run: |
+          ./bin/commando --dump curl > curl.json
+          python3 - <<'PY'
+          import json
+          opts = json.load(open("curl.json"))["options"]
+          req = next(o for o in opts if "-X" in o["names"])
+          print("curl -X:", req.get("choices"), "from", req.get("choice_source"))
+          assert "POST" in req.get("choices", []) and "zsh" in req.get("choice_source", "")
+          PY
 
   homebrew:
     strategy:
