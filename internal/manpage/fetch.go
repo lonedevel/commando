@@ -225,6 +225,7 @@ func LoadLine(ctx context.Context, words []string, useCache bool) (*Spec, int, e
 	}
 	if sub && HasPage(ctx, words[0]+"-"+words[1]) {
 		if s, err := Load(ctx, words[:2], useCache); err == nil {
+			ApplyDanger(s)
 			return s, 2, nil
 		}
 	}
@@ -237,10 +238,12 @@ func LoadLine(ctx context.Context, words []string, useCache bool) (*Spec, int, e
 	if sub && s.Source == "help" && listsCommand(s.Manual, words[1]) {
 		if ss, err := Load(ctx, words[:2], useCache); err == nil && ss.Source == "help" &&
 			strings.Contains(strings.ToLower(ss.Synopsis+" "+ss.Manual), strings.ToLower(words[0]+" "+words[1])) {
+			ApplyDanger(ss)
 			return ss, 2, nil
 		}
 	}
 	ApplyCompletions(s, completionsFor(words[:1]))
+	ApplyDanger(s)
 	return s, 1, nil
 }
 

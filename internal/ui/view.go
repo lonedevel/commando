@@ -202,6 +202,9 @@ func (m *Model) viewForm() string {
 
 	var foot string
 	switch {
+	case m.confirming != nil:
+		foot = " " + sErr.Render("⚠ Uses "+strings.Join(m.confirming, ", ")+", which can delete or overwrite data. Run it? ") +
+			sKey.Render("y") + sDim.Render(" run • any other key: back to the form")
 	case m.naming:
 		foot = " " + sKey.Render("Save preset as: ") + m.presetIn.View() + sFaint.Render("  ⏎ save • esc cancel")
 	case m.status != "":
@@ -441,9 +444,9 @@ func (m *Model) renderRow(k, labelW, nameW, widgetW, inner int) string {
 		if widgetW > 0 {
 			w += widgetW + 1
 		}
-		return marker + ctrl + fit(lst.Render(o.Label), w) + " " + names
+		return marker + ctrl + fit(warn(o)+lst.Render(o.Label), w) + " " + names
 	}
-	label := fit(lst.Render(o.Label), labelW)
+	label := fit(warn(o)+lst.Render(o.Label), labelW)
 
 	var widget string
 	switch o.Kind {
@@ -613,6 +616,11 @@ func (m *Model) helpBody(w, h int) []string {
 			}
 		}
 	}
+	if o.Danger != "" {
+		for _, l := range wrap("⚠ Risky: "+o.Danger+". You'll be asked to confirm before it runs.", w) {
+			add(sErr.Render(l))
+		}
+	}
 	if len(o.Conflicts) > 0 {
 		add(sDim.Render("Conflicts with: ") + sName.Render(strings.Join(o.Conflicts, ", ")))
 	}
@@ -671,4 +679,12 @@ func capitalizeFirst(s string) string {
 		return s[:i] + strings.ToUpper(string(r)) + s[i+len(string(r)):]
 	}
 	return s
+}
+
+// warn prefixes risky options' labels with a red marker.
+func warn(o *manpage.Option) string {
+	if o.Danger == "" {
+		return ""
+	}
+	return sErr.Render("⚠ ")
 }

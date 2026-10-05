@@ -341,3 +341,50 @@ func TestApplyCompletions(t *testing.T) {
 		t.Errorf("--width = %+v", o)
 	}
 }
+
+func TestDanger(t *testing.T) {
+	cases := map[string]string{
+		"remove directories and their contents recursively":         "can delete or overwrite data",
+		"Recursively remove all files in the directory.":            "can delete or overwrite data",
+		"receiver deletes before xfer, not during":                  "can delete or overwrite data",
+		"Attempt to remove the file hierarchy rooted in each file.": "can delete or overwrite data",
+		"ignore nonexistent files and arguments, never prompt":      "skips the confirmation prompt",
+		"force deletion of dirs even if not empty":                  "forces deleting or overwriting",
+		"prompt before every removal":                               "",
+		"do not overwrite an existing file":                         "",
+		"Never remove the root directory.":                          "",
+		"remove any trailing slashes from each SOURCE argument":     "",
+		"Overwrite metadata of existing directories (default).":     "",
+		"(TLS) Forces curl to use TLS version 1.2 or later.":        "",
+		"Display the number of blocks used. Files are removed.":     "",
+	}
+	for desc, want := range cases {
+		if got := dangerFromText(desc); got != want {
+			t.Errorf("dangerFromText(%q) = %q, want %q", desc, got, want)
+		}
+	}
+
+	s := load(t, "gnu-tar")
+	ApplyDanger(s)
+	for name, risky := range map[string]bool{"--remove-files": true, "--overwrite": true, "--unlink-first": true, "--overwrite-dir": false, "--create": false, "--extract": false} {
+		if got := find(t, s, name).Danger != ""; got != risky {
+			t.Errorf("tar %s risky = %v, want %v", name, got, risky)
+		}
+	}
+
+	// Known options are flagged even when the wording isn't destructive,
+	// and commands like shred only use the table.
+	rm := &Spec{Command: "rm", Options: []Option{{Names: []string{"-f", "--force"}, Desc: "ignore nonexistent files"}}}
+	ApplyDanger(rm)
+	if rm.Options[0].Danger != "deletes without asking, even read-only files" {
+		t.Errorf("rm -f danger = %q", rm.Options[0].Danger)
+	}
+	shred := &Spec{Command: "shred", Options: []Option{
+		{Names: []string{"-n"}, Desc: "overwrite N times instead of the default"},
+		{Names: []string{"-u"}, Desc: "deallocate and remove file after overwriting"},
+	}}
+	ApplyDanger(shred)
+	if shred.Options[0].Danger != "" || shred.Options[1].Danger == "" {
+		t.Errorf("shred: -n %q, -u %q", shred.Options[0].Danger, shred.Options[1].Danger)
+	}
+}

@@ -233,3 +233,45 @@ func TestFilterPrefersExactCase(t *testing.T) {
 		t.Errorf("filter -x landed on %v", m.spec.Options[r.opt].Names)
 	}
 }
+
+func TestConfirmRiskyOptions(t *testing.T) {
+	spec := &manpage.Spec{Command: "rm", Options: []manpage.Option{
+		{Names: []string{"-r"}, Kind: manpage.KindFlag, Label: "Remove recursively", Danger: "deletes directories"},
+		{Names: []string{"-v"}, Kind: manpage.KindFlag, Label: "Verbose"},
+	}}
+	open := func(confirm bool, line string) *Model {
+		m := New(Config{Line: line, Confirm: confirm})
+		m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+		m.Update(loadedMsg{spec: spec, rest: cmdline.Split(line)[1:]})
+		return m
+	}
+
+	m := open(true, "rm -r dir")
+	keys(m, "enter")
+	if m.result.Accepted || len(m.confirming) != 1 || m.confirming[0] != "-r" {
+		t.Fatalf("expected a confirmation for -r: %+v %v", m.result, m.confirming)
+	}
+	if !strings.Contains(ansi.Strip(m.View()), "Run it?") {
+		t.Error("confirmation not shown")
+	}
+	keys(m, "n")
+	if m.result.Accepted || m.confirming != nil {
+		t.Fatal("declining should return to the form")
+	}
+	keys(m, "enter", "y")
+	if !m.result.Accepted || m.result.Command != "rm -r dir" {
+		t.Fatalf("y should run: %+v", m.result)
+	}
+
+	// Safe options run straight away, and Confirm=false (print mode) skips it.
+	m = open(true, "rm -v dir")
+	keys(m, "enter")
+	if !m.result.Accepted {
+		t.Error("safe command needed confirmation")
+	}
+	m = open(false, "rm -r dir")
+	keys(m, "enter")
+	if !m.result.Accepted {
+		t.Error("print mode asked for confirmation")
+	}
+}

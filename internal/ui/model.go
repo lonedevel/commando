@@ -27,6 +27,7 @@ type Config struct {
 	PreferLong bool
 	Output     *termenv.Output // for OSC52 clipboard fallback
 	Store      *store.Store    // presets and history; nil disables them
+	Confirm    bool            // ask before running a command that uses risky options
 }
 
 // Result is what the user decided.
@@ -111,11 +112,12 @@ type Model struct {
 	lineRows   []int // vis index per rendered list line (for mouse)
 
 	// presets & recent (shown in place of the option list)
-	lib      bool
-	libItems []libItem
-	libSel   int
-	naming   bool // typing a name for a new preset
-	presetIn textinput.Model
+	lib        bool
+	libItems   []libItem
+	libSel     int
+	naming     bool     // typing a name for a new preset
+	confirming []string // risky options awaiting "run anyway?" confirmation
+	presetIn   textinput.Model
 
 	// manual mode
 	manLines  []string
@@ -667,14 +669,40 @@ func (m *Model) tokens() []cmdline.Token {
 	return cmdline.Build(m.spec, m.values, m.args.Value(), m.preferLong)
 }
 
+// riskyInUse lists the set options that delete or overwrite data.
+func (m *Model) riskyInUse() []string {
+	var names []string
+	for i, v := range m.values {
+		if o := &m.spec.Options[i]; v.On && o.Danger != "" {
+			names = append(names, o.Names[0])
+		}
+	}
+	return names
+}
+
 func (m *Model) accept() tea.Cmd {
 	m.commitCustom()
+	if m.cfg.Confirm && m.confirming == nil {
+		if risky := m.riskyInUse(); len(risky) > 0 {
+			m.confirming = risky
+			m.dropdown, m.filtering = false, false
+			return m.focusCurrent()
+		}
+	}
+	m.confirming = nil
 	m.result = Result{Command: cmdline.Render(m.tokens()), Accepted: true, Key: m.spec.Command}
 	return tea.Quit
 }
 
 func (m *Model) updateForm(k tea.KeyMsg) tea.Cmd {
 	key := k.String()
+	if m.confirming != nil {
+		if key == "y" || key == "Y" {
+			return m.accept()
+		}
+		m.confirming = nil
+		return m.setStatus("Not run. Adjust the options, or press ⏎ again.", false)
+	}
 	if m.naming {
 		return m.updateNaming(k)
 	}
