@@ -1,5 +1,36 @@
 # Release notes
 
+## v0.5.0
+
+Each of a command's arguments now gets its own labelled field, read from the usage line in its manual.
+
+### New: a field for each argument
+
+- Instead of one "Arguments" box, commands get a field per argument: `cp` has Source and Dest, `ln` has Target and Link name, `grep` has Patterns and File…, and macOS's `cp` has Source file and Target file.
+- Required arguments are marked `*`. If one is empty, Enter warns once ("DEST looks required…"), and pressing Enter again runs the command anyway, since usage lines aren't always strict.
+- Fields for files and folders complete with Tab. Fields marked `…` take several values separated by spaces.
+- Words you type before opening the form, and saved presets and recent commands, are spread across the fields in order: `commando grep -rn TODO src lib` puts `TODO` in Patterns and `src lib` in File….
+- Commands whose usage line is too irregular to read reliably, such as tar, curl and rsync, keep the single Arguments field.
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.5.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.4.0
 
 commando now warns you about options that can delete or overwrite data, and asks before running a command that uses one.
