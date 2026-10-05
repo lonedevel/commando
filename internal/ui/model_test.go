@@ -2,6 +2,7 @@ package ui
 
 import (
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -273,5 +274,67 @@ func TestConfirmRiskyOptions(t *testing.T) {
 	keys(m, "enter")
 	if !m.result.Accepted {
 		t.Error("print mode asked for confirmation")
+	}
+}
+
+func TestArgumentFields(t *testing.T) {
+	spec := &manpage.Spec{
+		Command: "cp",
+		Args:    []manpage.Arg{{Name: "SOURCE", Required: true, Path: true}, {Name: "DEST", Required: true, Path: true}},
+		Options: []manpage.Option{{Names: []string{"-v"}, Kind: manpage.KindFlag, Label: "Verbose"}},
+	}
+	m := New(Config{Line: "cp a.txt"})
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.Update(loadedMsg{spec: spec, rest: cmdline.Split("a.txt")})
+
+	if len(m.argInputs) != 2 || m.argInputs[0].Value() != "a.txt" || m.argInputs[1].Value() != "" {
+		t.Fatalf("arguments not distributed: %d fields", len(m.argInputs))
+	}
+	if r := m.curRow(); r.kind != rowOpt {
+		t.Error("cursor should start on the first option")
+	}
+	view := ansi.Strip(m.View())
+	for _, want := range []string{"Source *", "Dest *"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("view lacks %q", want)
+		}
+	}
+
+	// A required argument left empty warns once, then runs on a second Enter.
+	keys(m, "enter")
+	if m.result.Accepted || !strings.Contains(m.status, "DEST looks required") {
+		t.Fatalf("expected a warning, got status %q", m.status)
+	}
+	keys(m, "up")
+	keys(m, "out dir")
+	if got := m.command(); got != "cp a.txt out dir" {
+		t.Errorf("command = %q", got)
+	}
+	keys(m, "enter")
+	if !m.result.Accepted {
+		t.Error("filled-in form should run")
+	}
+}
+
+func TestDistributeArgs(t *testing.T) {
+	file := manpage.Arg{Name: "FILE", Repeat: true}
+	pat := manpage.Arg{Name: "PATTERNS", Required: true}
+	src := manpage.Arg{Name: "SRC", Repeat: true}
+	dst := manpage.Arg{Name: "DEST"}
+	cases := []struct {
+		args []manpage.Arg
+		line string
+		want []string
+	}{
+		{[]manpage.Arg{pat, file}, `TODO src "my dir"`, []string{"TODO", `src "my dir"`}},
+		{[]manpage.Arg{src, dst}, "a b c out/", []string{"a b c", "out/"}},
+		{[]manpage.Arg{src, dst}, "a", []string{"", "a"}},
+		{[]manpage.Arg{dst}, "x y", []string{"x y"}},
+		{[]manpage.Arg{pat, file}, "", []string{"", ""}},
+	}
+	for _, c := range cases {
+		if got := distributeArgs(c.args, cmdline.Split(c.line)); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("distributeArgs(%q) = %q, want %q", c.line, got, c.want)
+		}
 	}
 }

@@ -388,3 +388,42 @@ func TestDanger(t *testing.T) {
 		t.Errorf("shred: -n %q, -u %q", shred.Options[0].Danger, shred.Options[1].Danger)
 	}
 }
+
+func TestParseArgs(t *testing.T) {
+	type A = Arg
+	cases := []struct {
+		synopsis, command string
+		want              []Arg
+	}{
+		{"cp [OPTION]... [-T] SOURCE DEST", "cp", []A{{Name: "SOURCE", Required: true, Path: true}, {Name: "DEST", Required: true, Path: true}}},
+		{"rm [OPTION]... [FILE]...", "rm", []A{{Name: "FILE", Repeat: true, Path: true}}},
+		{"grep [OPTION...] PATTERNS [FILE...]\ngrep [OPTION...] -e PATTERNS ... [FILE...]", "grep", []A{{Name: "PATTERNS", Required: true}, {Name: "FILE", Repeat: true, Path: true}}},
+		{"chmod [OPTION]... MODE[,MODE]... FILE...", "chmod", []A{{Name: "MODE", Required: true, Repeat: true}, {Name: "FILE", Required: true, Repeat: true, Path: true}}},
+		{"ls [-@ABC1%,] [--color=when] [-D format] [file ...]", "ls", []A{{Name: "file", Repeat: true, Path: true}}},
+		{"cp [-R [-H | -L | -P]] [-f | -i | -n] [-alNpsvx] source_file target_file", "cp", []A{{Name: "source_file", Required: true, Path: true}, {Name: "target_file", Required: true, Path: true}}},
+		{"find [-H | -L | -P] [-EXdsx] [-f path] path ... [expression]", "find", []A{{Name: "path", Required: true, Repeat: true, Path: true}, {Name: "expression"}}},
+		{"git commit [-a | --interactive] [--] [<pathspec>...]", "git commit", []A{{Name: "pathspec", Repeat: true, Path: true}}},
+		{"Usage: rustc [OPTIONS] INPUT", "rustc", []A{{Name: "INPUT", Required: true}}},
+		// Too irregular: keep the single Arguments field.
+		{"tar {A|c|d|r|t|u|x}[GnSkUWOmpsMBiajJzZhPlRvwo] [ARG...]", "tar", nil},
+		{"curl [options / URLs]", "curl", nil},
+		{"Local: rsync [OPTION...] SRC... [DEST]", "rsync", nil},
+		{"ssh [-46] destination [command [argument ...]]", "ssh", nil},
+		{"other [OPTION]... FILE", "ls", nil},
+	}
+	for _, c := range cases {
+		if got := parseArgs(c.synopsis, c.command); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("parseArgs(%q) =\n %+v\nwant\n %+v", c.synopsis, got, c.want)
+		}
+	}
+	if l := (Arg{Name: "LINK_NAME"}).Label(); l != "Link name" {
+		t.Errorf("Label = %q", l)
+	}
+
+	// From whole pages: BSD ls by its real name.
+	b, _ := os.ReadFile("testdata/bsd-ls.txt")
+	s := Parse("ls", Clean(string(b)), "man")
+	if len(s.Args) != 1 || s.Args[0].Name != "file" || s.Args[0].Required || !s.Args[0].Repeat {
+		t.Errorf("BSD ls args = %+v", s.Args)
+	}
+}

@@ -134,8 +134,7 @@ func (m *Model) applyLine(line string) {
 	m.fill(words)
 	m.filter.SetValue("")
 	m.applyFilter()
-	m.cursor = 0
-	m.move(1)
+	m.toFirstOption()
 }
 
 func (m *Model) startNaming() tea.Cmd {
@@ -147,10 +146,7 @@ func (m *Model) startNaming() tea.Cmd {
 	m.filtering = false
 	m.naming = true
 	m.presetIn.SetValue("")
-	m.args.Blur()
-	for _, ti := range m.inputs {
-		ti.Blur()
-	}
+	m.blurInputs()
 	m.filter.Blur()
 	return m.presetIn.Focus()
 }
