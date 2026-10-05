@@ -1,5 +1,40 @@
 # Release notes
 
+## v0.4.0
+
+commando now warns you about options that can delete or overwrite data, and asks before running a command that uses one.
+
+### New: warnings for risky options
+
+- Options that delete or overwrite data, or that skip a confirmation prompt, are marked with a red ⚠, for example `rm -r` and `-f`, `rsync --delete`, `find -delete`, `tar --remove-files`, `ln -f` and `git push --force`. The help panel says why each one is risky.
+- If the command you built uses one, pressing Enter asks "Run it?" first. Press `y` to run it, or any other key to go back to the form.
+- Nothing is asked with `-p` or the Ctrl-X Ctrl-O shell shortcut, since they only put the command on your prompt for review. Set `COMMANDO_NO_CONFIRM=1` to never be asked.
+
+### Upgrading with Homebrew
+
+Homebrew only refreshes the commando tap during `brew update`, which `brew upgrade` skips if it ran recently. To get this version:
+
+```sh
+brew update && brew upgrade commando
+```
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.4.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.3.0
 
 More options are now dropdowns, using the value lists your shell already knows.
