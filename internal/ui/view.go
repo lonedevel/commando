@@ -280,7 +280,7 @@ func (m *Model) footerKeys() string {
 	}
 	pairs = append(pairs, [2]string{"↑↓", "move"}, [2]string{"⏎", "run"}, [2]string{"^F", "filter"},
 		[2]string{"^O", "manual"})
-	if len(m.spec.Examples) > 0 {
+	if m.hasExamples() {
 		pairs = append(pairs, [2]string{"^X", "examples"})
 	}
 	pairs = append(pairs, [2]string{"^L", "presets"}, [2]string{"^T", "save preset"},
@@ -708,10 +708,29 @@ func (m *Model) helpBody(w, h int) []string {
 		add(sDim.Render("Conflicts with: ") + sName.Render(strings.Join(o.Conflicts, ", ")))
 	}
 	add("")
-	for i, p := range strings.Split(o.Desc, "\n\n") {
-		if i > 0 {
+	if len(o.Examples) > 0 {
+		title := "Example"
+		if len(o.Examples) > 1 {
+			title = "Examples"
+		}
+		add(sHeader.Render(title))
+		for _, ex := range o.Examples {
+			for i, wl := range wrap(ex, w-2) {
+				add("  " + m.styledLine(wl, i == 0))
+			}
+		}
+		add(dimWrap("^X lists the examples; ⏎ there loads one into the form.", w)...)
+		add("")
+	}
+	first := true
+	for _, p := range strings.Split(o.Desc, "\n\n") {
+		if isExampleText(p, o.Examples) {
+			continue // shown below, as commands
+		}
+		if !first {
 			add("")
 		}
+		first = false
 		pre := strings.HasPrefix(p, "  ")
 		if !pre {
 			p = capitalizeFirst(p)
@@ -816,4 +835,24 @@ func firstClause(s string) string {
 		}
 	}
 	return s
+}
+
+// isExampleText reports whether a description paragraph is an option's
+// example, or the "Example:" line introducing it, which the help panel
+// shows separately.
+func isExampleText(p string, examples []string) bool {
+	if len(examples) == 0 {
+		return false
+	}
+	t := strings.Join(strings.Fields(p), " ")
+	switch strings.ToLower(t) {
+	case "example:", "examples:", "for example:":
+		return true
+	}
+	for _, ex := range examples {
+		if t == ex || strings.Contains(ex, t) && strings.HasPrefix(t, strings.Fields(ex)[0]+" ") {
+			return true
+		}
+	}
+	return false
 }

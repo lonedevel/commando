@@ -55,8 +55,10 @@ commando cp
   `-r` and `-n` already checked and `TODO .` as arguments.
 - **Examples from the manual.** `^X` lists the ready-made command lines
   from the manual's EXAMPLES section, each with its explanation: `git log`,
-  `find`, `rsync`, `grep` and many more have them. Press Enter to load one
-  into the form and adjust it. Examples the form can't hold exactly, such as
+  `find`, `rsync`, `grep` and many more have them. Manuals that give an
+  example under each option, as curl's does, show it in the help panel, and
+  `^X` on that option jumps to it. Press Enter to load one into the form and
+  adjust it. Examples the form can't hold exactly, such as
   ones using `!` or parentheses, are marked ⧉, and Enter copies them instead.
 - **Explain a command line.** `commando --explain 'tar -czvf backup.tgz src'`
   prints what each option and argument means, from the manual, without

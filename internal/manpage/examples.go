@@ -233,3 +233,48 @@ func hasShellOperator(s string) bool {
 	}
 	return false
 }
+
+// optionIntroRe matches the line that introduces an option's own examples:
+// "Example:", "Examples:", "For example:".
+var optionIntroRe = regexp.MustCompile(`(?i)(?:^|\s)(?:for )?examples?:$`)
+
+// optionExamples reads the command lines given under an option, after a
+// line ending in "Example:" (curl puts one under nearly every option).
+func optionExamples(block []line, command string) []string {
+	words := strings.Fields(command)
+	var out []string
+	seen := map[string]bool{}
+	for i := 0; i < len(block); i++ {
+		if !optionIntroRe.MatchString(block[i].s) {
+			continue
+		}
+		ind := block[i].ind
+		for j := i + 1; j < len(block); j++ {
+			l := block[j]
+			if l.blank() {
+				if len(out) > 0 && j+1 < len(block) && block[j+1].ind <= ind {
+					break
+				}
+				continue
+			}
+			if l.ind <= ind {
+				break
+			}
+			cmd, ok := exampleAt(block, j, words)
+			if !ok {
+				continue
+			}
+			for strings.HasSuffix(cmd, `\`) && j+1 < len(block) && !block[j+1].blank() {
+				j++
+				cmd = strings.TrimSpace(strings.TrimSuffix(cmd, `\`)) + " " + block[j].s
+			}
+			cmd = spacesRe.ReplaceAllString(cmd, " ")
+			if !seen[cmd] {
+				seen[cmd] = true
+				out = append(out, cmd)
+			}
+			i = j
+		}
+	}
+	return out
+}
