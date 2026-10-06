@@ -13,10 +13,11 @@ import (
 var (
 	// "b      block (buffered) special", "pax, posix   POSIX format",
 	// "binary (default)" on a line of its own.
-	defRowRe   = regexp.MustCompile(`^([A-Za-z0-9][\w.+-]*(?:,\s*[A-Za-z0-9][\w.+-]*)*)(?:\s+\(default\))?(?:\s{2,}(\S.*))?$`)
-	ifIsRe     = regexp.MustCompile(`(?:^|[.;]\s+)(?:If|When) (\S+) is ['‘"“]?([A-Za-z0-9][\w.+-]*)['’"”]?, ([^.]*[^.\s])`)
-	wordFlagIn = regexp.MustCompile(`\b([a-z][\w-]*) \((-[A-Za-z0-9])\)`)
-	groupRe    = regexp.MustCompile(`([A-Za-z][^;:]*?)(?:\s*\((-[A-Za-z0-9]|default)\))?:\s*([a-z][\w-]*(?:,\s*[a-z][\w-]*)+)\s*(?:;|$)`)
+	defRowRe    = regexp.MustCompile(`^([A-Za-z0-9][\w.+-]*(?:,\s*[A-Za-z0-9][\w.+-]*)*)(?:\s+\(default\))?(?:\s{2,}(\S.*))?$`)
+	defaultIsRe = regexp.MustCompile(`(?:^|[.;]\s+)By default, (\S+) is ['‘"“]?([A-Za-z0-9][\w.+-]*)['’"”]?, (?:and )?([^.]*[^.\s])`)
+	ifIsRe      = regexp.MustCompile(`(?:^|[.;]\s+)(?:If|When) (\S+) is ['‘"“]?([A-Za-z0-9][\w.+-]*)['’"”]?, ([^.]*[^.\s])`)
+	wordFlagIn  = regexp.MustCompile(`\b([a-z][\w-]*) \((-[A-Za-z0-9])\)`)
+	groupRe     = regexp.MustCompile(`([A-Za-z][^;:]*?)(?:\s*\((-[A-Za-z0-9]|default)\))?:\s*([a-z][\w-]*(?:,\s*[a-z][\w-]*)+)\s*(?:;|$)`)
 )
 
 // definitionList reads "value  meaning" rows from an option's own lines,
@@ -194,6 +195,12 @@ func (p *parser) valueDescs(o *Option, block []line, byName map[string]int) {
 	if o.Kind != KindChoice {
 		return
 	}
+	// "By default, TYPE is binary, and grep suppresses output …".
+	for _, m := range defaultIsRe.FindAllStringSubmatch(text, -1) {
+		if strings.EqualFold(m[1], o.Arg) {
+			set(m[2], "The default: "+m[3])
+		}
+	}
 	// "If TYPE is text, grep processes a binary file as if it were text".
 	for _, m := range ifIsRe.FindAllStringSubmatch(text, -1) {
 		if strings.EqualFold(m[1], o.Arg) || strings.EqualFold(m[1], "type") {
@@ -233,7 +240,22 @@ func (p *parser) valueDescs(o *Option, block []line, byName map[string]int) {
 	}
 	if len(descs) > 0 {
 		o.ChoiceDesc = descs
+		o.Label = trimValueIntro(o.Label, o.Arg)
 	}
+}
+
+// trimValueIntro drops the placeholder from a label that introduced the
+// list of values ("File is of type c:" → "File is of type"), now that the
+// dropdown says what each value means.
+func trimValueIntro(label, arg string) string {
+	if !strings.HasSuffix(label, ":") {
+		return label
+	}
+	label = strings.TrimSpace(strings.TrimSuffix(label, ":"))
+	if f := strings.Fields(label); len(f) > 2 && strings.EqualFold(f[len(f)-1], strings.Trim(arg, "<>[]")) {
+		label = strings.Join(f[:len(f)-1], " ")
+	}
+	return label
 }
 
 func firstSentence(s string) string {

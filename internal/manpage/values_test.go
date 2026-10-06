@@ -111,3 +111,30 @@ OPTIONS
 		t.Errorf("--binary-files = %v %v", o.Choices, o.ChoiceDesc)
 	}
 }
+
+func TestValueDescPolish(t *testing.T) {
+	page := `OPTIONS
+       --binary-files=TYPE
+              What to do with binary files.
+
+              By default, TYPE is binary, and grep suppresses output.
+
+              When type is binary, grep may treat bytes as line terminators.
+
+              If TYPE is text, grep processes a binary file as if it were text.
+
+       -type c
+              File is of type c:
+
+              d      directory
+
+              f      regular file
+`
+	s := Parse("grep", Clean(page), "man")
+	if d := optionNamed(t, s, "--binary-files").ChoiceDesc["binary"]; d != "The default: grep suppresses output" {
+		t.Errorf("binary = %q", d)
+	}
+	if l := optionNamed(t, s, "-type").Label; l != "File is of type" {
+		t.Errorf("-type label = %q", l)
+	}
+}

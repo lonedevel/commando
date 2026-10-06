@@ -332,8 +332,9 @@ func TestApplyCompletions(t *testing.T) {
 	if o := find(t, s, "--block-size"); o.Kind != KindChoice || o.ChoiceSource != "zsh" || !reflect.DeepEqual(o.Choices, []string{"K", "M", "G"}) {
 		t.Errorf("--block-size = %+v", o)
 	}
-	// Values from the manual are kept after the completion's.
-	want := []string{"size", "time", "status", "none", "version", "extension", "width"}
+	// Values from the manual are kept after the completion's, and a
+	// completion value the manual never mentions ("status") is left out.
+	want := []string{"size", "time", "none", "version", "extension", "width"}
 	if o := find(t, s, "--sort"); !reflect.DeepEqual(o.Choices, want) || o.ChoiceSource != "zsh and fish" {
 		t.Errorf("--sort = %v (%s)", o.Choices, o.ChoiceSource)
 	}
@@ -357,6 +358,9 @@ func TestDanger(t *testing.T) {
 		"Overwrite metadata of existing directories (default).":     "",
 		"(TLS) Forces curl to use TLS version 1.2 or later.":        "",
 		"Display the number of blocks used. Files are removed.":     "",
+		// Cleaning up after itself (docker run --rm, docker build --rm).
+		"Automatically remove the container and its associated anonymous volumes when it exits": "",
+		"Remove intermediate containers after a successful build":                               "",
 	}
 	for desc, want := range cases {
 		if got := dangerFromText(desc); got != want {

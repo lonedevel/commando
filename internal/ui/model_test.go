@@ -602,3 +602,15 @@ func TestValueDescriptions(t *testing.T) {
 		t.Errorf("dropdown lacks meanings:\n%s", ansi.Strip(m.View()))
 	}
 }
+
+func TestFirstClause(t *testing.T) {
+	for in, want := range map[string]string{
+		"Symbolic link; this is never true if -L": "Symbolic link",
+		"Do not sort. Lists entries as found":     "Do not sort",
+		"Directory":                               "Directory",
+	} {
+		if got := firstClause(in); got != want {
+			t.Errorf("firstClause(%q) = %q", in, got)
+		}
+	}
+}

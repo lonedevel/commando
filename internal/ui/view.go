@@ -592,7 +592,7 @@ func (m *Model) dropdownLine(dd, indent int) string {
 		for _, x := range o.Choices {
 			col = max(col, ansi.StringWidth(x))
 		}
-		text = sValue.Render(fit(c, min(col, 16))) + mark + " " + sFaint.Render(o.ChoiceDesc[c])
+		text = sValue.Render(fit(c, min(col, 16))) + mark + " " + sFaint.Render(firstClause(o.ChoiceDesc[c]))
 	default:
 		text = sDim.Render("✎ custom value…")
 	}
@@ -804,4 +804,16 @@ func valueLines(o *manpage.Option, chosen string, w int) []string {
 		}
 	}
 	return out
+}
+
+// firstClause shortens a value's meaning for a dropdown row: "Symbolic
+// link; this is never true if…" → "Symbolic link". The help panel keeps
+// the whole text.
+func firstClause(s string) string {
+	for _, sep := range []string{"; ", ". "} {
+		if i := strings.Index(s, sep); i > 0 {
+			s = s[:i]
+		}
+	}
+	return s
 }
