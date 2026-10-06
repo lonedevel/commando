@@ -43,6 +43,8 @@ type Option struct {
 	LongEquals  bool     `json:"long_equals,omitempty"`  // long form written as --name=ARG
 	Kind        Kind     `json:"kind"`
 	Choices     []string `json:"choices,omitempty"`
+	// ChoiceDesc says what each value means, where the manual does.
+	ChoiceDesc map[string]string `json:"choice_desc,omitempty"`
 	// ChoiceSource is "zsh" or "fish" when Choices came from that shell's
 	// completion definitions, empty when inferred from the manual.
 	ChoiceSource string   `json:"choice_source,omitempty"`

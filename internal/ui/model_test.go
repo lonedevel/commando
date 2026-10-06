@@ -585,3 +585,20 @@ func TestWarnsWhenReordered(t *testing.T) {
 		t.Errorf("reordered line: status %q", m.status)
 	}
 }
+
+func TestValueDescriptions(t *testing.T) {
+	m := newForm(t, "bsd-find", "find", 120, 40)
+	keys(m, "/", "t", "y", "p", "e", "enter")
+	r := m.curRow()
+	if r == nil || r.kind != rowOpt || m.spec.Options[r.opt].Names[0] != "-type" {
+		t.Fatalf("not on -type: %+v", r)
+	}
+	v := ansi.Strip(m.View())
+	if !strings.Contains(v, "Values:") || !strings.Contains(v, "d  Directory") {
+		t.Errorf("help panel lacks value meanings:\n%s", v)
+	}
+	keys(m, "space") // open the dropdown
+	if !m.dropdown || !strings.Contains(ansi.Strip(m.View()), "Symbolic link") {
+		t.Errorf("dropdown lacks meanings:\n%s", ansi.Strip(m.View()))
+	}
+}

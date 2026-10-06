@@ -82,3 +82,12 @@ func TestLibraryExplains(t *testing.T) {
 		t.Errorf("preview has no explanation:\n%s", v)
 	}
 }
+
+func TestExplainValueMeaning(t *testing.T) {
+	spec := specFrom(t, "bsd-find")
+	parts := cmdline.Explain(spec, cmdline.Split(`. -type d`))
+	out := ansi.Strip(strings.Join(explainParts(spec, parts, 100, false), "\n"))
+	if !strings.Contains(out, "d: Directory") {
+		t.Errorf("explanation lacks the value's meaning:\n%s", out)
+	}
+}

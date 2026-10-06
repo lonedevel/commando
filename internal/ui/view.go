@@ -579,10 +579,20 @@ func (m *Model) dropdownLine(dd, indent int) string {
 	case idx == 0:
 		text = sFaint.Render("(not set)")
 	case idx <= len(o.Choices):
-		text = sValue.Render(o.Choices[idx-1])
-		if o.Choices[idx-1] == m.values[r.opt].Text {
-			text += sOn.Render(" ✓")
+		c := o.Choices[idx-1]
+		mark := "  "
+		if c == m.values[r.opt].Text {
+			mark = sOn.Render(" ✓")
 		}
+		if len(o.ChoiceDesc) == 0 {
+			text = sValue.Render(c) + mark
+			break
+		}
+		col := 0
+		for _, x := range o.Choices {
+			col = max(col, ansi.StringWidth(x))
+		}
+		text = sValue.Render(fit(c, min(col, 16))) + mark + " " + sFaint.Render(o.ChoiceDesc[c])
 	default:
 		text = sDim.Render("✎ custom value…")
 	}
@@ -674,13 +684,18 @@ func (m *Model) helpBody(w, h int) []string {
 		if o.ChoiceSource != "" {
 			add(dimWrap("Values from the "+o.ChoiceSource+" shell completions", w)...)
 		}
-		vals := strings.Join(o.Choices, " · ")
-		for i, wl := range wrap("Values: "+vals, w) {
-			if i == 0 {
-				wl = strings.TrimPrefix(wl, "Values: ")
-				add(sDim.Render("Values: ") + sValue.Render(wl))
-			} else {
-				add(sValue.Render(wl))
+		if len(o.ChoiceDesc) > 0 {
+			add(sDim.Render("Values:"))
+			add(valueLines(o, m.values[r.opt].Text, w)...)
+		} else {
+			vals := strings.Join(o.Choices, " · ")
+			for i, wl := range wrap("Values: "+vals, w) {
+				if i == 0 {
+					wl = strings.TrimPrefix(wl, "Values: ")
+					add(sDim.Render("Values: ") + sValue.Render(wl))
+				} else {
+					add(sValue.Render(wl))
+				}
 			}
 		}
 	}
@@ -758,4 +773,35 @@ func warn(o *manpage.Option) string {
 		return ""
 	}
 	return sErr.Render("⚠ ")
+}
+
+// valueLines lists an option's values with what each means, marking the
+// one chosen.
+func valueLines(o *manpage.Option, chosen string, w int) []string {
+	col := 0
+	for _, c := range o.Choices {
+		col = max(col, ansi.StringWidth(c))
+	}
+	col = min(col, max(4, w/3))
+	var out []string
+	for _, c := range o.Choices {
+		mark := "  "
+		if c == chosen {
+			mark = sOn.Render("✓ ")
+		}
+		name := sValue.Render(fit(c, col))
+		d := o.ChoiceDesc[c]
+		if d == "" {
+			out = append(out, mark+name)
+			continue
+		}
+		for i, l := range wrap(d, max(8, w-col-4)) {
+			if i == 0 {
+				out = append(out, mark+name+"  "+sText.Render(l))
+			} else {
+				out = append(out, strings.Repeat(" ", col+4)+sText.Render(l))
+			}
+		}
+	}
+	return out
 }

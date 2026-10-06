@@ -236,6 +236,9 @@ func explainParts(spec *manpage.Spec, parts []cmdline.Part, width int, compact b
 				desc += " (" + other + ")"
 			}
 			notes = append(notes, note{desc, sText})
+			if d := o.ChoiceDesc[p.Value]; d != "" {
+				notes = append(notes, note{p.Value + ": " + d, sText})
+			}
 			if len(o.Choices) > 0 && p.Value != "" && indexOf(o.Choices, p.Value) < 0 {
 				notes = append(notes, note{"not one of the listed values: " + strings.Join(o.Choices, ", "), sDim})
 			}

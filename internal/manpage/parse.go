@@ -163,7 +163,8 @@ type parser struct {
 	// option start lines, used for description and group detection.
 	optLines []int
 	optEnd   []int
-	paras    []para // paragraphs outside option descriptions
+	paras    []para         // paragraphs outside option descriptions
+	blocks   map[int][]line // each option's own lines, by option index
 }
 
 type para struct {
@@ -531,6 +532,10 @@ func (p *parser) findOptions() {
 			seen[n] = true
 		}
 		desc := joinParagraphs(c.rest, ls[c.idx+1:end])
+		if p.blocks == nil {
+			p.blocks = map[int][]line{}
+		}
+		p.blocks[len(p.spec.Options)] = ls[c.idx+1 : end]
 		section := l.sub
 		if section == "" {
 			section = titleCase(l.sect)
@@ -860,6 +865,12 @@ func (p *parser) finishOptions() {
 		}
 		o.Label = refineLabel(o)
 		o.Notes = p.notesFor(o)
+	}
+	byName := p.indexByName()
+	for i := range opts {
+		if opts[i].TakesArg() {
+			p.valueDescs(&opts[i], p.blocks[i], byName)
+		}
 	}
 }
 
