@@ -9,23 +9,77 @@ import (
 )
 
 // Palette. Bright accents read well on dark iTerm/Terminal profiles; the
-// adaptive neutrals keep light profiles legible.
+// adaptive neutrals keep light profiles legible. ApplyTheme can replace it.
 var (
+	cViolet, cPink, cCyan, cGreen, cYellow, cOrange, cBlue, cRed lipgloss.AdaptiveColor
+	cText, cDim, cFaint                                          lipgloss.AdaptiveColor
+	cOption                                                      lipgloss.AdaptiveColor // option names
+	cSelBg                                                       = lipgloss.AdaptiveColor{Light: "#EDE9FE", Dark: "#2E1F4F"}
+	cField                                                       = lipgloss.AdaptiveColor{Light: "#F3F4F6", Dark: "#24243A"}
+	cFieldF                                                      = lipgloss.AdaptiveColor{Light: "#E0E7FF", Dark: "#33335A"}
+)
+
+func defaultPalette() {
 	cViolet = lipgloss.AdaptiveColor{Light: "#7C3AED", Dark: "#C084FC"}
-	cPink   = lipgloss.AdaptiveColor{Light: "#DB2777", Dark: "#F472B6"}
-	cCyan   = lipgloss.AdaptiveColor{Light: "#0E7490", Dark: "#22D3EE"}
-	cGreen  = lipgloss.AdaptiveColor{Light: "#15803D", Dark: "#4ADE80"}
+	cPink = lipgloss.AdaptiveColor{Light: "#DB2777", Dark: "#F472B6"}
+	cCyan = lipgloss.AdaptiveColor{Light: "#0E7490", Dark: "#22D3EE"}
+	cGreen = lipgloss.AdaptiveColor{Light: "#15803D", Dark: "#4ADE80"}
 	cYellow = lipgloss.AdaptiveColor{Light: "#A16207", Dark: "#FDE047"}
 	cOrange = lipgloss.AdaptiveColor{Light: "#C2410C", Dark: "#FB923C"}
-	cBlue   = lipgloss.AdaptiveColor{Light: "#1D4ED8", Dark: "#60A5FA"}
-	cRed    = lipgloss.AdaptiveColor{Light: "#B91C1C", Dark: "#F87171"}
-	cText   = lipgloss.AdaptiveColor{Light: "#1F2937", Dark: "#E5E7EB"}
-	cDim    = lipgloss.AdaptiveColor{Light: "#6B7280", Dark: "#9CA3AF"}
-	cFaint  = lipgloss.AdaptiveColor{Light: "#9CA3AF", Dark: "#4B5563"}
-	cSelBg  = lipgloss.AdaptiveColor{Light: "#EDE9FE", Dark: "#2E1F4F"}
-	cField  = lipgloss.AdaptiveColor{Light: "#F3F4F6", Dark: "#24243A"}
-	cFieldF = lipgloss.AdaptiveColor{Light: "#E0E7FF", Dark: "#33335A"}
-)
+	cBlue = lipgloss.AdaptiveColor{Light: "#1D4ED8", Dark: "#60A5FA"}
+	cRed = lipgloss.AdaptiveColor{Light: "#B91C1C", Dark: "#F87171"}
+	cText = lipgloss.AdaptiveColor{Light: "#1F2937", Dark: "#E5E7EB"}
+	cDim = lipgloss.AdaptiveColor{Light: "#6B7280", Dark: "#9CA3AF"}
+	cFaint = lipgloss.AdaptiveColor{Light: "#9CA3AF", Dark: "#4B5563"}
+	cOption = cViolet
+}
+
+// contrastPalette has stronger colors: full white or black text, and
+// accents that stand further from the background.
+func contrastPalette() {
+	cViolet = lipgloss.AdaptiveColor{Light: "#5B21B6", Dark: "#E9D5FF"}
+	cPink = lipgloss.AdaptiveColor{Light: "#9D174D", Dark: "#FBCFE8"}
+	cCyan = lipgloss.AdaptiveColor{Light: "#155E75", Dark: "#A5F3FC"}
+	cGreen = lipgloss.AdaptiveColor{Light: "#14532D", Dark: "#BBF7D0"}
+	cYellow = lipgloss.AdaptiveColor{Light: "#713F12", Dark: "#FEF08A"}
+	cOrange = lipgloss.AdaptiveColor{Light: "#7C2D12", Dark: "#FED7AA"}
+	cBlue = lipgloss.AdaptiveColor{Light: "#1E3A8A", Dark: "#BFDBFE"}
+	cRed = lipgloss.AdaptiveColor{Light: "#7F1D1D", Dark: "#FECACA"}
+	cText = lipgloss.AdaptiveColor{Light: "#000000", Dark: "#FFFFFF"}
+	cDim = lipgloss.AdaptiveColor{Light: "#1F2937", Dark: "#E5E7EB"}
+	cFaint = lipgloss.AdaptiveColor{Light: "#4B5563", Dark: "#9CA3AF"}
+	cOption = cViolet
+}
+
+// ApplyTheme sets the colors: theme is "auto" (follow the terminal's
+// background), "dark", "light" or "contrast", and colors overrides roles
+// ("accent", "danger"…) with hex colors. Call it after UseRenderer.
+func ApplyTheme(r *lipgloss.Renderer, theme string, colors map[string]string) {
+	defaultPalette()
+	switch theme {
+	case "dark":
+		r.SetHasDarkBackground(true)
+	case "light":
+		r.SetHasDarkBackground(false)
+	case "contrast":
+		contrastPalette()
+	}
+	roles := map[string]*lipgloss.AdaptiveColor{
+		"accent": &cViolet, "command": &cPink, "header": &cCyan, "option": &cOption,
+		"value": &cYellow, "argument": &cGreen, "path": &cBlue, "group": &cOrange,
+		"danger": &cRed, "text": &cText, "dim": &cDim, "faint": &cFaint,
+	}
+	accent, hasOption := colors["accent"], colors["option"] != ""
+	for role, hex := range colors {
+		if c, ok := roles[role]; ok && hex != "" {
+			*c = lipgloss.AdaptiveColor{Light: hex, Dark: hex}
+		}
+	}
+	if accent != "" && !hasOption {
+		cOption = cViolet // option names follow the accent unless set
+	}
+	setStyles()
+}
 
 var (
 	sText    lipgloss.Style
@@ -47,7 +101,10 @@ var (
 	sMatchHL lipgloss.Style
 )
 
-func init() { setStyles() }
+func init() {
+	defaultPalette()
+	setStyles()
+}
 
 // UseRenderer makes the styles render for r's output: the terminal the
 // form runs on, or stdout for --explain, which may be a pipe (no color).
@@ -62,8 +119,8 @@ func setStyles() {
 	sDim = lipgloss.NewStyle().Foreground(cDim)
 	sFaint = lipgloss.NewStyle().Foreground(cFaint)
 	sBold = lipgloss.NewStyle().Foreground(cText).Bold(true)
-	sName = lipgloss.NewStyle().Foreground(cViolet)
-	sNameB = lipgloss.NewStyle().Foreground(cViolet).Bold(true)
+	sName = lipgloss.NewStyle().Foreground(cOption)
+	sNameB = lipgloss.NewStyle().Foreground(cOption).Bold(true)
 	sValue = lipgloss.NewStyle().Foreground(cYellow)
 	sArg = lipgloss.NewStyle().Foreground(cGreen)
 	sCmd = lipgloss.NewStyle().Foreground(cPink).Bold(true)
@@ -75,11 +132,12 @@ func setStyles() {
 	sOK = lipgloss.NewStyle().Foreground(cGreen)
 	sCursor = lipgloss.NewStyle().Foreground(cPink).Bold(true)
 	sMatchHL = lipgloss.NewStyle().Foreground(lipgloss.Color("#111111")).Background(cYellow)
+	kindColor = map[string]lipgloss.AdaptiveColor{
+		"flag": cGreen, "choice": cCyan, "number": cYellow, "path": cBlue, "text": cOrange,
+	}
 }
 
-var kindColor = map[string]lipgloss.AdaptiveColor{
-	"flag": cGreen, "choice": cCyan, "number": cYellow, "path": cBlue, "text": cOrange,
-}
+var kindColor map[string]lipgloss.AdaptiveColor
 
 func badge(label string, c lipgloss.TerminalColor) string {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color("#111111")).Background(c).Bold(true).Padding(0, 1).Render(label)

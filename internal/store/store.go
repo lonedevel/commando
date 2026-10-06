@@ -14,7 +14,8 @@ import (
 	"time"
 )
 
-// MaxRecent is how many recent command lines are kept per command.
+// MaxRecent is how many recent command lines are kept per command, unless
+// Store.Max says otherwise.
 const MaxRecent = 10
 
 // Entry is a saved command line.
@@ -34,6 +35,9 @@ type Command struct {
 type Store struct {
 	Version  int                 `json:"version"`
 	Commands map[string]*Command `json:"commands"`
+
+	// Max is how many recent lines to keep per command; 0 means MaxRecent.
+	Max int `json:"-"`
 
 	path string
 }
@@ -116,7 +120,7 @@ func (s *Store) For(cmd string) (presets, recent []Entry) {
 }
 
 // AddRecent records that line was run for cmd, moving it to the front and
-// keeping at most MaxRecent entries.
+// keeping at most Max (or MaxRecent) entries.
 func (s *Store) AddRecent(cmd, line string, now time.Time) {
 	line = strings.TrimSpace(line)
 	if cmd == "" || line == "" {
@@ -130,8 +134,12 @@ func (s *Store) AddRecent(cmd, line string, now time.Time) {
 		}
 	}
 	sort.SliceStable(kept[1:], func(i, j int) bool { return kept[1+i].Used.After(kept[1+j].Used) })
-	if len(kept) > MaxRecent {
-		kept = kept[:MaxRecent]
+	limit := s.Max
+	if limit <= 0 {
+		limit = MaxRecent
+	}
+	if len(kept) > limit {
+		kept = kept[:limit]
 	}
 	c.Recent = kept
 }

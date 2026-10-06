@@ -1,5 +1,36 @@
 # Release notes
 
+## v0.11.0
+
+commando now has a settings file, for your defaults, colors, and corrections to what it reads from manuals.
+
+### New: settings file
+
+- Run `commando --config` to create a commented settings file at `~/.config/commando/config.toml`. Run it again any time to see where the file is and check it for mistakes. Flags and environment variables still win over it.
+- **Defaults:** `long` (prefer `--long` option names), `confirm` (ask before running a ⚠ command), `history`, and `recent` (how many recent commands to keep per command, which used to be fixed at 10).
+- **Colors:** `theme = "auto"`, `"dark"`, `"light"` or `"contrast"`, the last for a stronger palette. Under `[colors]` you can override any color by its role: `accent`, `command`, `danger`, `text` and so on.
+- **Corrections per command:** under `[commands."docker run"]` (or any other command), `safe` options never get a ⚠, `risky` ones always do, and `values` adds entries to an option's dropdown, for example `"--quoting-style" = ["clocale"]` for `ls`. Corrections apply to the form and to `--explain`.
+- If the file has a mistake, commando warns once and carries on with the defaults. `commando --config` lists every problem it finds.
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.11.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.10.1
 
 Fixes and polish.

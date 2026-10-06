@@ -9,13 +9,14 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/lonedevel/commando/internal/cmdline"
+	"github.com/lonedevel/commando/internal/config"
 	"github.com/lonedevel/commando/internal/manpage"
 )
 
 // Explain describes a shell command line: each command in it, with what
 // each of its options and arguments means according to its manual. It is
 // what commando --explain prints, wrapped to width.
-func Explain(ctx context.Context, line string, width int, useCache bool) string {
+func Explain(ctx context.Context, line string, width int, useCache bool, settings *config.Config) string {
 	width = max(40, width)
 	var out []string
 	segs := splitLine(line)
@@ -29,7 +30,7 @@ func Explain(ctx context.Context, line string, width int, useCache bool) string 
 		if seg.sep != "" {
 			out = append(out, sKey.Render(seg.sep)+" "+sDim.Render(separatorText[seg.sep]), "")
 		}
-		out = append(out, explainCommand(ctx, seg.text, width, useCache)...)
+		out = append(out, explainCommand(ctx, seg.text, width, useCache, settings)...)
 	}
 	return strings.Join(out, "\n") + "\n"
 }
@@ -63,7 +64,7 @@ var (
 )
 
 // explainCommand describes one simple command, and any it wraps.
-func explainCommand(ctx context.Context, text string, width int, useCache bool) []string {
+func explainCommand(ctx context.Context, text string, width int, useCache bool, settings *config.Config) []string {
 	words := cmdline.Split(text)
 	var out []string
 	// Redirections and NAME=value settings apply to the whole command.
@@ -82,6 +83,9 @@ func explainCommand(ctx context.Context, text string, width int, useCache bool) 
 		vals[i] = w.Value
 	}
 	spec, n, err := manpage.LoadLine(ctx, vals, useCache)
+	if err == nil {
+		settings.Apply(spec)
+	}
 	if err != nil {
 		out = append(out, sCmd.Render(vals[0])+sDim.Render(" — no manual or --help found, so this can't be explained"))
 		return append(out, notes...)
@@ -109,7 +113,7 @@ func explainCommand(ctx context.Context, text string, width int, useCache bool) 
 			raws = append(raws, w.Raw)
 		}
 		out = append(out, "")
-		out = append(out, explainCommand(ctx, strings.Join(raws, " "), width, useCache)...)
+		out = append(out, explainCommand(ctx, strings.Join(raws, " "), width, useCache, settings)...)
 	}
 	return out
 }

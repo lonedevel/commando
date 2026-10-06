@@ -68,7 +68,7 @@ func TestExplainParts(t *testing.T) {
 }
 
 func TestExplainUnknownCommand(t *testing.T) {
-	out := ansi.Strip(Explain(context.Background(), "no-such-command-xyz --flag | also-missing-abc", 80, false))
+	out := ansi.Strip(Explain(context.Background(), "no-such-command-xyz --flag | also-missing-abc", 80, false, nil))
 	if !strings.Contains(out, "no-such-command-xyz — no manual") || !strings.Contains(out, "| sends its output into") {
 		t.Errorf("Explain =\n%s", out)
 	}
