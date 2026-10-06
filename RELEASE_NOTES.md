@@ -1,5 +1,48 @@
 # Release notes
 
+## v0.9.0
+
+Find out what a command line does before you run it.
+
+### New: explain a command line
+
+- `commando --explain 'tar -czvf backup.tgz --exclude=.git src'` prints what each option and argument means, taken from the manual, without opening the form.
+- Options show the manual's first sentence and their other names, plus a red ⚠ for risky ones such as `rm -rf` and `rsync --delete`. There's a note when a value isn't one of the listed choices.
+- Arguments are named from the usage line (`cp a b` → Source, Dest). Options the manual doesn't list are flagged.
+- Pipelines and lists (`|`, `&&`, `||`, `;`, `&`) are explained one command at a time.
+- Wrappers such as `sudo`, `xargs`, `env`, `nice` and `time` are explained along with the command they run.
+- `NAME=value` settings and redirections (`> file`, `2>&1`, `2>/dev/null`) are explained. Writing to a file with `>` is marked as replacing what it holds.
+- `find`'s `!`, parentheses and `-o` are explained.
+- Output is plain text when piped.
+
+### Also new
+
+- **Shell shortcut:** `Ctrl-X ?` explains the line you're typing, below your prompt, without changing it. To get it, re-run the `eval "$(commando --init zsh)"` line (or the bash or fish one) in a new shell. The bash shortcuts need bash 4 or later; macOS ships 3.2, so use Homebrew's bash or zsh.
+- **In the form:** the preview beside presets, recent commands and examples now explains each one, including ⧉ examples the form can't load.
+
+### Fixes
+
+- With `-p`, and in the `Ctrl-X Ctrl-O` shortcut, the form lost most of its colors because its output was going to a pipe. The colors are back.
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.9.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.8.0
 
 Start from the examples in a command's manual, and build `find` commands that run as intended.
