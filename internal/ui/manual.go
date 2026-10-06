@@ -6,6 +6,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/lonedevel/commando/internal/manpage"
 )
 
 var manOptRe = regexp.MustCompile(`^(\s+)(-[^\s].*?)(\s{2,}.*)?$`)
@@ -37,6 +39,7 @@ func colorizeManual(text string) []string {
 
 func (m *Model) openManual() {
 	m.mode = modeManual
+	m.manBack = modeForm
 	m.manFind = false
 	m.manOff = 0
 	// Start at the focused option's entry when there is one.
@@ -67,12 +70,20 @@ func (m *Model) scrollManual(d int) {
 	}
 }
 
+// manSpec is the command whose manual is open.
+func (m *Model) manSpec() *manpage.Spec {
+	if m.manBack == modeSub {
+		return m.toolMsg.spec // opened from the subcommand browser
+	}
+	return m.spec
+}
+
 func (m *Model) findNext(dir int) tea.Cmd {
 	q := strings.ToLower(m.manQuery)
 	if q == "" {
 		return nil
 	}
-	raw := strings.Split(m.spec.Manual, "\n")
+	raw := strings.Split(m.manSpec().Manual, "\n")
 	n := len(raw)
 	for k := 1; k <= n; k++ {
 		i := ((m.manOff+dir*k)%n + n) % n
@@ -107,6 +118,9 @@ func (m *Model) updateManual(k tea.KeyMsg) tea.Cmd {
 	page := m.manHeight()
 	switch key {
 	case "esc", "q", "ctrl+o", "f1", "?":
+		if m.manBack == modeSub {
+			return m.openSubs()
+		}
 		m.mode = modeForm
 		return m.focusCurrent()
 	case "up", "k", "ctrl+p":
@@ -149,9 +163,10 @@ func (m *Model) viewManual() string {
 	if len(m.manLines) > m.manHeight() {
 		pct = 100 * m.manOff / max(1, len(m.manLines)-m.manHeight())
 	}
-	title := sCmd.Render("man "+m.spec.Command) + sDim.Render(" · ") + sDim.Render(itoa(pct)+"%")
-	if m.spec.Source == "help" {
-		title = sCmd.Render(m.spec.Command+" --help") + sDim.Render(" · "+itoa(pct)+"%")
+	spec := m.manSpec()
+	title := sCmd.Render("man "+spec.Command) + sDim.Render(" · ") + sDim.Render(itoa(pct)+"%")
+	if spec.Source == "help" {
+		title = sCmd.Render(spec.Command+" --help") + sDim.Render(" · "+itoa(pct)+"%")
 	}
 	out := box(title, body, w, h-1, cViolet)
 	var foot string
@@ -160,7 +175,7 @@ func (m *Model) viewManual() string {
 	} else if m.status != "" {
 		foot = " " + m.statusView()
 	} else {
-		foot = keyHelp([][2]string{{"↑↓/jk", "scroll"}, {"space/b", "page"}, {"/", "search"}, {"n/N", "next/prev"}, {"g/G", "top/end"}, {"esc", "back to form"}})
+		foot = keyHelp([][2]string{{"↑↓/jk", "scroll"}, {"space/b", "page"}, {"/", "search"}, {"n/N", "next/prev"}, {"g/G", "top/end"}, {"esc", "back"}})
 	}
 	return out + "\n" + fit(foot, w)
 }

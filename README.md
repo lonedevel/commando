@@ -6,10 +6,10 @@ buttons, read what each option does as you go, then press **Enter** to run
 the command you built.
 
 ```sh
-commando ls
+commando cp
 ```
 
-![commando editing an ls command: flags checked, the --color dropdown open, and the help panel explaining the option](docs/screenshot.png)
+![commando editing a cp command: Source and Dest fields filled in, the --reflink dropdown open with values from the shell's completions, a ⚠ on --remove-destination, and the help panel explaining the focused option](docs/screenshot.png)
 
 ## Features
 
@@ -49,8 +49,14 @@ commando ls
   `Ctrl-T` saves the current form as a named preset. The next time you open
   `commando tar`, your presets and recent tar commands are listed first: pick
   one and adjust it instead of starting over.
-- **Subcommands.** `commando git commit` uses `git-commit(1)`;
-  `commando cargo build` uses `cargo build --help`.
+- **Subcommands.** `commando git` lists git's commands with a line on what
+  each does, grouped the way git's manual groups them (main porcelain,
+  ancillary, plumbing…). Type to filter, then press Enter to open that
+  command's form. Your presets and recent git commands are listed first.
+  Tools documented by `--help`, such as cargo, docker and kubectl, list the
+  commands from their "Commands:" sections. `commando git commit` skips the
+  list and uses `git-commit(1)`; `commando cargo build` uses
+  `cargo build --help`.
 - **Fast.** The form opens immediately and loads in the background. Parsed
   manuals are cached (keyed by the page's path, size and mtime), so a second
   run of even `curl`'s 5,000-line manual takes ~20 ms.
@@ -95,6 +101,7 @@ make install        # go install ./cmd/commando
 ```sh
 commando                 # asks which command, with completion from $PATH
 commando ls              # build an ls command and run it
+commando git             # pick a git command, then its options
 commando grep -rn TODO   # start from an existing command line
 commando -p tar          # print the command instead of running it
 commando --long rsync    # prefer --long option names
@@ -125,6 +132,16 @@ commando --init fish | source
 ```
 
 Then type a command, for example `rsync -a`, and press **Ctrl-X Ctrl-O**.
+
+### Choosing a subcommand
+
+Opening a tool that has subcommands without naming one, as in
+`commando git` or `commando docker`, lists its commands first:
+
+![commando listing git's commands: a filter, a recent git commit line, and the main porcelain commands with their descriptions](docs/subcommands.png)
+
+The first entry opens the form for the tool's own options. Esc in a
+command's form returns to the list.
 
 ### Presets and recent commands
 
@@ -165,7 +182,10 @@ turn this off.
 | `Ctrl-Y` | Copy the command to the clipboard |
 | `Ctrl-R` | Clear everything |
 | `Enter` | Run the command (or print it with `-p`) |
-| `Esc` | Close dropdown / clear filter / quit |
+| `Esc` | Close dropdown / clear filter / back to the command list / quit |
+
+In the command list: type to filter, `↑↓` choose, `Enter` open, `^O` the
+tool's manual, `Esc` clear the filter or quit.
 
 In the manual viewer: `↑↓`/`jk` scroll, `Space`/`b` page, `g`/`G` top and
 bottom, `/` search, `n`/`N` next and previous match, `Esc` back.

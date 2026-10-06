@@ -204,3 +204,24 @@ func (s *Store) AllRecent(n int) []Entry {
 	}
 	return all
 }
+
+// Under returns the presets and recent lines saved for cmd and for each of
+// its subcommands ("git", "git commit", "git push"…). Presets are sorted by
+// name, recent lines newest first, at most n.
+func (s *Store) Under(cmd string, n int) (presets, recent []Entry) {
+	for key, c := range s.Commands {
+		if key != cmd && !strings.HasPrefix(key, cmd+" ") {
+			continue
+		}
+		presets = append(presets, c.Presets...)
+		recent = append(recent, c.Recent...)
+	}
+	sort.SliceStable(presets, func(i, j int) bool {
+		return strings.ToLower(presets[i].Name) < strings.ToLower(presets[j].Name)
+	})
+	sort.SliceStable(recent, func(i, j int) bool { return recent[i].Used.After(recent[j].Used) })
+	if len(recent) > n {
+		recent = recent[:n]
+	}
+	return presets, recent
+}

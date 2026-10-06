@@ -25,7 +25,7 @@ import (
 	"github.com/lonedevel/commando/internal/ui"
 )
 
-var version = "0.5.0"
+var version = "0.6.0"
 
 const usage = `commando — a friendly front-end for Unix command options
 
@@ -51,6 +51,7 @@ Flags:
 Examples:
   commando ls
   commando grep -rn TODO .        # pre-fills -r and -n
+  commando git                   # choose a git command, then its options
   commando git commit
   eval "$(commando --init zsh)"  # then press Ctrl-X Ctrl-O on any command line
 `

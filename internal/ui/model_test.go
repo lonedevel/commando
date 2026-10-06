@@ -338,3 +338,133 @@ func TestDistributeArgs(t *testing.T) {
 		}
 	}
 }
+
+func TestSubcommandBrowser(t *testing.T) {
+	t.Setenv("COMMANDO_DATA_DIR", t.TempDir())
+	st := store.Load()
+	st.AddRecent("tool commit", "tool commit -a", time.Now().Add(-time.Hour))
+	st.AddRecent("ls", "ls -l", time.Now()) // another tool: not listed
+
+	tool := specFrom(t, "gnu-ls")
+	tool.Command, tool.Summary = "tool", "does things"
+	subs := []manpage.Subcommand{
+		{Name: "add", Desc: "Add file contents to the index", Group: "Main"},
+		{Name: "commit", Desc: "Record changes", Group: "Main"},
+		{Name: "commit-tree", Desc: "Create a new commit object", Group: "Plumbing"},
+		{Name: "log", Desc: "Show commit logs", Group: "Main"},
+	}
+	m := New(Config{Line: "tool", Store: st})
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	m.Update(loadedMsg{spec: tool, cmd: "tool", subs: subs})
+	if m.mode != modeSub {
+		t.Fatalf("mode = %v, want the browser", m.mode)
+	}
+	// Own options, then the recent line (selected), then the commands.
+	if len(m.subItems) != 6 || m.subItems[0].kind != subOwn || m.subItems[1].entry.Line != "tool commit -a" || m.subSel != 1 {
+		t.Fatalf("items = %+v sel=%d", m.subItems, m.subSel)
+	}
+	view := m.View()
+	for _, want := range []string{"Record changes", "tool commit -a", "Plumbing", "its own options"} {
+		if !strings.Contains(ansi.Strip(view), want) {
+			t.Errorf("view lacks %q", want)
+		}
+	}
+
+	// Filtering puts name matches before description matches.
+	keys(m, "c", "o", "m")
+	if m.subItems[m.subSel].kind != subRecent {
+		t.Fatalf("selected %+v", m.subItems[m.subSel])
+	}
+	var got []string
+	for _, it := range m.subItems {
+		if it.kind == subCmd {
+			got = append(got, subs[it.sub].Name)
+		}
+	}
+	if want := []string{"commit", "commit-tree", "log"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("filtered = %v, want %v", got, want)
+	}
+	keys(m, "down", "enter")
+	if m.mode != modeLoading || m.cfg.Line != "tool commit" {
+		t.Fatalf("enter: mode=%v line=%q", m.mode, m.cfg.Line)
+	}
+
+	// The form opens; Esc goes back to the browser, keeping the filter.
+	commit := specFrom(t, "gnu-ls")
+	commit.Command = "tool commit"
+	m.Update(loadedMsg{spec: commit, cmd: "tool commit"})
+	if m.mode != modeForm || m.spec.Command != "tool commit" {
+		t.Fatalf("form: mode=%v", m.mode)
+	}
+	if !m.lib {
+		t.Error("the command's recent lines were not offered")
+	}
+	keys(m, "esc", "esc") // close them, then leave the form
+	if m.mode != modeSub || m.subFilter.Value() != "com" {
+		t.Fatalf("esc: mode=%v filter=%q", m.mode, m.subFilter.Value())
+	}
+
+	// A command without an option list falls back to the tool's form.
+	keys(m, "down", "enter")
+	m.Update(loadedMsg{spec: tool, cmd: "tool", rest: cmdline.Split("commit")})
+	if m.mode != modeForm || !strings.Contains(m.status, "No option list for tool commit") {
+		t.Errorf("fallback: mode=%v status=%q", m.mode, m.status)
+	}
+	keys(m, "esc")
+
+	// Errors keep you in the browser.
+	keys(m, "enter")
+	m.Update(loadedMsg{err: manpage.ErrNotFound, cmd: "tool"})
+	if m.mode != modeSub || !m.statusErr {
+		t.Errorf("error: mode=%v status=%q", m.mode, m.status)
+	}
+
+	// Esc clears the filter, then the tool's own options open its form.
+	keys(m, "esc")
+	if m.subFilter.Value() != "" {
+		t.Fatal("esc did not clear the filter")
+	}
+	m.Update(tea.KeyMsg{Type: tea.KeyHome})
+	keys(m, "enter")
+	if m.mode != modeForm || m.spec.Command != "tool" {
+		t.Fatalf("own options: mode=%v", m.mode)
+	}
+
+	// The manual opened from the browser returns to it.
+	keys(m, "esc")
+	keys(m, "ctrl+o")
+	if m.mode != modeManual || !strings.Contains(m.View(), "man tool") {
+		t.Fatalf("manual: mode=%v", m.mode)
+	}
+	keys(m, "esc")
+	if m.mode != modeSub {
+		t.Errorf("manual esc: mode=%v", m.mode)
+	}
+
+	// Every size renders without overflowing.
+	for _, sz := range [][2]int{{60, 12}, {80, 24}, {100, 30}, {200, 60}} {
+		m.Update(tea.WindowSizeMsg{Width: sz[0], Height: sz[1]})
+		lines := strings.Split(m.View(), "\n")
+		if len(lines) > sz[1] {
+			t.Errorf("%v: %d lines", sz, len(lines))
+		}
+		for _, l := range lines {
+			if w := ansi.StringWidth(l); w > sz[0] {
+				t.Errorf("%v: line width %d", sz, w)
+			}
+		}
+	}
+}
+
+func TestNoBrowserWithoutSubcommands(t *testing.T) {
+	m := New(Config{Line: "ls"})
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.Update(loadedMsg{spec: specFrom(t, "gnu-ls"), cmd: "ls"})
+	if m.mode != modeForm {
+		t.Fatalf("mode = %v", m.mode)
+	}
+	keys(m, "esc")
+	if m.mode != modeForm || m.result.Accepted {
+		t.Error("esc should quit, not open a browser")
+	}
+}

@@ -31,6 +31,8 @@ func (m *Model) View() string {
 		return m.center(m.spin.View() + " " + sText.Render("Reading the manual for ") + sCmd.Render(m.loadWhat) + sText.Render("…"))
 	case modeManual:
 		return m.viewManual()
+	case modeSub:
+		return m.viewSubs()
 	}
 	return m.viewForm()
 }
@@ -510,7 +512,7 @@ func argHint(s *manpage.Spec) string {
 	syn := strings.SplitN(s.Synopsis, "\n", 2)[0]
 	fields := strings.Fields(strings.NewReplacer("[", "", "]", "").Replace(syn))
 	var hint []string
-	for _, f := range fields[min(1, len(fields)):] {
+	for _, f := range fields[min(len(strings.Fields(s.Command)), len(fields)):] {
 		u := strings.ToUpper(f)
 		if !hintRe.MatchString(f) || strings.HasPrefix(u, "OPTION") {
 			continue
