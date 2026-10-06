@@ -3,6 +3,7 @@ package manpage
 import (
 	"bufio"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"io"
 	"os"
@@ -20,19 +21,21 @@ type Subcommand struct {
 	Group   string   `json:"group,omitempty"` // heading it was listed under, e.g. "Management Commands"
 }
 
-// Subcommands lists the commands of the tool s documents, or nil when it
-// has none. Tools documented by man pages have one page per command
-// (git-commit(1) beside git(1)); the tool's own page orders and groups
-// them. Tools documented by --help list them under "Commands:" headings.
-func Subcommands(s *Spec, useCache bool) []Subcommand {
-	if s == nil || strings.Contains(s.Command, " ") {
+// Subcommands lists the commands of the tool or command s documents, or
+// nil when it has none. Tools documented by man pages have one page per
+// command (git-commit(1) beside git(1), docker-container-ls(1) beside
+// docker-container(1)); the tool's own page orders and groups them. Tools
+// documented by --help list them under "Commands:" headings, at any depth
+// (docker container --help).
+func Subcommands(ctx context.Context, s *Spec, useCache bool) []Subcommand {
+	if s == nil {
 		return nil
 	}
 	var subs []Subcommand
-	if s.Source == "man" && s.Page != "" {
-		subs = manSubcommands(s, useCache)
-	}
-	if s.Source == "help" {
+	switch {
+	case s.Source == "man" && s.Page != "":
+		subs = manSubcommands(ctx, s, useCache)
+	case s.Source == "help":
 		subs = helpSubcommands(s.Manual)
 	}
 	if len(subs) < 2 {
@@ -41,9 +44,9 @@ func Subcommands(s *Spec, useCache bool) []Subcommand {
 	return subs
 }
 
-// manSubcommands finds the pages named after the command (git-*) in the
-// same folder as its own page.
-func manSubcommands(s *Spec, useCache bool) []Subcommand {
+// manSubcommands finds the pages named after the command (git-*, or
+// docker-container-* for "docker container") in the folder of its own page.
+func manSubcommands(ctx context.Context, s *Spec, useCache bool) []Subcommand {
 	dir := filepath.Dir(s.Page)
 	key := cacheKey("subs", s.Command, dir)
 	if useCache {
@@ -55,7 +58,9 @@ func manSubcommands(s *Spec, useCache bool) []Subcommand {
 	if err != nil {
 		return nil
 	}
-	prefix := s.Command + "-"
+	words := strings.Fields(s.Command)
+	page := strings.Join(words, "-")
+	prefix := page + "-"
 	pages := map[string]string{} // subcommand → page file
 	for _, e := range ents {
 		n := e.Name()
@@ -67,6 +72,27 @@ func manSubcommands(s *Spec, useCache bool) []Subcommand {
 			pages[name] = filepath.Join(dir, n)
 		}
 	}
+	// Below the top level, pages such as git-commit-tree(1) belong to the
+	// parent ("git commit-tree"), not to "git commit".
+	if len(words) > 1 && len(pages) > 0 {
+		last := words[len(words)-1]
+		if parent, err := Load(ctx, words[:len(words)-1], useCache); err == nil {
+			for _, p := range Subcommands(ctx, parent, useCache) {
+				if rest, ok := strings.CutPrefix(p.Name, last+"-"); ok {
+					delete(pages, rest)
+				}
+			}
+		}
+		// And a command's own page names the commands it groups
+		// (docker-container(1) lists docker-container-ls(1)); git-remote(1)
+		// never mentions git-remote-ext(1), a command of git itself.
+		src := pageSource(s.Page)
+		for name := range pages {
+			if !strings.Contains(src, prefix+name) {
+				delete(pages, name)
+			}
+		}
+	}
 	var subs []Subcommand
 	seen := map[string]bool{}
 	add := func(name, group string) {
@@ -74,17 +100,18 @@ func manSubcommands(s *Spec, useCache bool) []Subcommand {
 			return
 		}
 		seen[name] = true
-		subs = append(subs, Subcommand{Name: name, Desc: pageSummary(pages[name], s.Command+"-"+name), Group: group})
+		subs = append(subs, Subcommand{Name: name, Desc: pageSummary(pages[name], prefix+name), Group: group})
 	}
 	// The tool's page usually lists its commands by group, most useful first.
-	for _, r := range manRefs(s.Manual, s.Command) {
+	for _, r := range manRefs(s.Manual, page) {
 		if _, ok := pages[r.Name]; ok {
 			add(r.Name, r.Group)
 		}
 	}
 	var rest []string
+	srcs := map[string]string{}
 	for name := range pages {
-		if !seen[name] {
+		if !seen[name] && !nestedPage(prefix, name, pages, srcs) {
 			rest = append(rest, name)
 		}
 	}
@@ -98,6 +125,35 @@ func manSubcommands(s *Spec, useCache bool) []Subcommand {
 	}
 	writeSubsCache(key, subs)
 	return subs
+}
+
+// nestedPage reports whether name ("container-ls") belongs to another
+// command on the list ("container") rather than being one itself: that
+// command's page must mention it.
+func nestedPage(prefix, name string, pages, srcs map[string]string) bool {
+	for i := strings.IndexByte(name, '-'); i > 0; i = nextDash(name, i) {
+		parent, ok := pages[name[:i]]
+		if !ok {
+			continue
+		}
+		src, ok := srcs[parent]
+		if !ok {
+			src = pageSource(parent)
+			srcs[parent] = src
+		}
+		if strings.Contains(src, prefix+name) {
+			return true
+		}
+	}
+	return false
+}
+
+func nextDash(s string, i int) int {
+	j := strings.IndexByte(s[i+1:], '-')
+	if j < 0 {
+		return -1
+	}
+	return i + 1 + j
 }
 
 // pageName strips the section and compression suffixes: "git-add.1.gz" → "git-add".
@@ -166,29 +222,38 @@ var (
 	roffChar = regexp.MustCompile(`\\(\(..|\[[^]]*\]|\*\(..|\*.|&|.)`)
 )
 
+// openPage opens a page file, decompressing .gz; it returns nil for
+// formats it can't read.
+func openPage(path string) (io.Reader, func()) {
+	if strings.HasSuffix(path, ".bz2") || strings.HasSuffix(path, ".xz") || strings.HasSuffix(path, ".zst") {
+		return nil, nil
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, nil
+	}
+	if !strings.HasSuffix(path, ".gz") {
+		return f, func() { f.Close() }
+	}
+	zr, err := gzip.NewReader(f)
+	if err != nil {
+		f.Close()
+		return nil, nil
+	}
+	return zr, func() { zr.Close(); f.Close() }
+}
+
 // pageSummary reads the one-line description from a page's NAME section
 // ("git-commit \- Record changes to the repository").
 func pageSummary(path, name string) string {
 	if path == "" {
 		return ""
 	}
-	f, err := os.Open(path)
-	if err != nil {
+	r, closeFn := openPage(path)
+	if r == nil {
 		return ""
 	}
-	defer f.Close()
-	var r io.Reader = f
-	switch {
-	case strings.HasSuffix(path, ".gz"):
-		zr, err := gzip.NewReader(f)
-		if err != nil {
-			return ""
-		}
-		defer zr.Close()
-		r = zr
-	case strings.HasSuffix(path, ".bz2"), strings.HasSuffix(path, ".xz"), strings.HasSuffix(path, ".zst"):
-		return ""
-	}
+	defer closeFn()
 	sc := bufio.NewScanner(io.LimitReader(r, 32<<10))
 	inName := false
 	for sc.Scan() {
@@ -212,6 +277,18 @@ func pageSummary(path, name string) string {
 		}
 	}
 	return ""
+}
+
+// pageSource returns a page's roff source with escapes' backslashes
+// removed, so "docker\-container\-ls" reads "docker-container-ls".
+func pageSource(path string) string {
+	r, closeFn := openPage(path)
+	if r == nil {
+		return ""
+	}
+	defer closeFn()
+	b, _ := io.ReadAll(io.LimitReader(r, 1<<20))
+	return strings.ReplaceAll(string(b), `\`, "")
 }
 
 func cleanRoff(s string) string {

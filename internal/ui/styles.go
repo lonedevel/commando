@@ -107,7 +107,7 @@ func box(title string, body []string, w, h int, color lipgloss.TerminalColor) st
 	}
 	top += bc.Render("╮")
 
-	lines := make([]string, 0, h)
+	lines := make([]string, 0, max(0, h))
 	lines = append(lines, top)
 	side := bc.Render("│")
 	for i := 0; i < h-2; i++ {

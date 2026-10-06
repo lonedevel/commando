@@ -468,3 +468,71 @@ func TestNoBrowserWithoutSubcommands(t *testing.T) {
 		t.Error("esc should quit, not open a browser")
 	}
 }
+
+// Tiny terminals must not crash any screen.
+func TestTinyTerminals(t *testing.T) {
+	for _, sz := range [][2]int{{1, 1}, {20, 3}, {30, 6}, {118, 6}, {50, 9}} {
+		m := newForm(t, "curl", "curl", 80, 24)
+		m.Update(tea.WindowSizeMsg{Width: sz[0], Height: sz[1]})
+		keys(m, "down", "space", "ctrl+o", "esc")
+		m.Update(tea.KeyMsg{Type: tea.KeyCtrlL})
+		_ = m.View()
+
+		b := New(Config{Line: "tool"})
+		b.Update(tea.WindowSizeMsg{Width: sz[0], Height: sz[1]})
+		b.Update(loadedMsg{spec: specFrom(t, "gnu-ls"), cmd: "tool", subs: []manpage.Subcommand{{Name: "a"}, {Name: "b"}}})
+		keys(b, "down", "a", "ctrl+o", "esc")
+		_ = b.View()
+	}
+}
+
+func TestNestedSubcommandBrowser(t *testing.T) {
+	spec := func(cmd string) *manpage.Spec {
+		s := specFrom(t, "gnu-ls")
+		s.Command = cmd
+		return s
+	}
+	m := New(Config{Line: "dock"})
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	m.Update(loadedMsg{spec: spec("dock"), cmd: "dock", subs: []manpage.Subcommand{{Name: "container", Desc: "Manage containers"}, {Name: "run"}}})
+	keys(m, "c", "o", "n", "enter")
+	if m.cfg.Line != "dock container" {
+		t.Fatalf("line = %q", m.cfg.Line)
+	}
+	// The group has commands of its own: a second list.
+	m.Update(loadedMsg{spec: spec("dock container"), cmd: "dock container", subs: []manpage.Subcommand{{Name: "ls"}, {Name: "rm"}}})
+	if m.mode != modeSub || m.subTool() != "dock container" || len(m.subStack) != 1 {
+		t.Fatalf("second level: mode=%v tool=%q stack=%d", m.mode, m.subTool(), len(m.subStack))
+	}
+	if v := ansi.Strip(m.View()); !strings.Contains(v, "dock › container") || !strings.Contains(v, "esc back") {
+		t.Errorf("breadcrumb or footer missing:\n%s", v)
+	}
+	keys(m, "l", "s", "enter")
+	if m.cfg.Line != "dock container ls" {
+		t.Fatalf("line = %q", m.cfg.Line)
+	}
+	m.Update(loadedMsg{spec: spec("dock container ls"), cmd: "dock container ls"})
+	if m.mode != modeForm {
+		t.Fatalf("form: mode=%v", m.mode)
+	}
+	// Esc: back to the group's list, then clear its filter, then up to the tool's.
+	keys(m, "esc")
+	if m.mode != modeSub || m.subTool() != "dock container" || m.subFilter.Value() != "ls" {
+		t.Fatalf("esc 1: mode=%v tool=%q filter=%q", m.mode, m.subTool(), m.subFilter.Value())
+	}
+	keys(m, "esc", "esc")
+	if m.subTool() != "dock" || m.subFilter.Value() != "con" || len(m.subStack) != 0 {
+		t.Fatalf("esc 3: tool=%q filter=%q", m.subTool(), m.subFilter.Value())
+	}
+	if it := m.subItems[m.subSel]; it.kind != subCmd || m.subs[it.sub].Name != "container" {
+		t.Errorf("selection not restored: %+v", it)
+	}
+
+	// Opening a group directly starts a fresh list: Esc quits from it.
+	d := New(Config{Line: "dock container"})
+	d.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	d.Update(loadedMsg{spec: spec("dock container"), cmd: "dock container", subs: []manpage.Subcommand{{Name: "ls"}, {Name: "rm"}}})
+	if d.mode != modeSub || len(d.subStack) != 0 {
+		t.Fatalf("direct: mode=%v stack=%d", d.mode, len(d.subStack))
+	}
+}

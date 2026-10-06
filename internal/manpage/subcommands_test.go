@@ -121,7 +121,7 @@ SEE ALSO
        tool-commit(1), tool-add(1)
 `
 	s := &Spec{Command: "tool", Source: "man", Page: filepath.Join(dir, "tool.1"), Manual: manual}
-	subs := manSubcommands(s, true)
+	subs := manSubcommands(t.Context(), s, true)
 	want := []Subcommand{
 		{Name: "commit", Desc: "Record changes to the repository", Group: "Main commands"},
 		{Name: "add", Desc: "add file contents", Group: "Main commands"},
@@ -131,14 +131,14 @@ SEE ALSO
 		t.Fatalf("subs =\n%+v\nwant\n%+v", subs, want)
 	}
 	// The second call is answered from the cache.
-	if again := manSubcommands(s, true); !reflect.DeepEqual(again, want) {
+	if again := manSubcommands(t.Context(), s, true); !reflect.DeepEqual(again, want) {
 		t.Errorf("cached = %+v", again)
 	}
-	if got := Subcommands(s, true); len(got) != 3 {
+	if got := Subcommands(t.Context(), s, true); len(got) != 3 {
 		t.Errorf("Subcommands = %v", got)
 	}
 	// Subcommands of a subcommand aren't listed.
-	if got := Subcommands(&Spec{Command: "tool commit", Source: "man", Page: s.Page}, true); got != nil {
+	if got := Subcommands(t.Context(), &Spec{Command: "tool commit", Source: "man", Page: s.Page}, true); got != nil {
 		t.Errorf("nested = %v", got)
 	}
 }
@@ -147,5 +147,82 @@ func TestManRefsHeading(t *testing.T) {
 	refs := manRefs("GIT COMMANDS\n       git-add(1)\n           Add.\n", "git")
 	if len(refs) != 1 || refs[0].Group != "Git commands" {
 		t.Errorf("refs = %+v", refs)
+	}
+}
+
+func TestNestedManSubcommands(t *testing.T) {
+	t.Setenv("COMMANDO_CACHE_DIR", t.TempDir())
+	dir := t.TempDir()
+	write := func(name, text string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	page := func(name, desc string) string { return ".TH X 1\n.SH NAME\n" + name + " \\- " + desc + "\n" }
+	write("dock.1", page("dock", "runs things"))
+	write("dock-run.1", page("dock-run", "run a container"))
+	// container groups ls and rm, and its page says so.
+	write("dock-container.1", page("dock-container", "manage containers")+".SH SEE ALSO\n\\fBdock\\-container\\-ls(1)\\fR, \\fBdock\\-container\\-rm(1)\\fR\n")
+	write("dock-container-ls.1", page("dock-container-ls", "list containers"))
+	write("dock-container-rm.1", page("dock-container-rm", "remove containers"))
+	// remote-ext is a command of dock itself: dock-remote(1) never mentions it.
+	write("dock-remote.1", page("dock-remote", "manage remotes"))
+	write("dock-remote-ext.1", page("dock-remote-ext", "external transport"))
+
+	top := &Spec{Command: "dock", Source: "man", Page: filepath.Join(dir, "dock.1")}
+	if got := names(manSubcommands(t.Context(), top, false)); !reflect.DeepEqual(got, []string{"container", "remote", "remote-ext", "run"}) {
+		t.Errorf("dock = %v", got)
+	}
+	group := &Spec{Command: "dock container", Source: "man", Page: filepath.Join(dir, "dock-container.1")}
+	subs := manSubcommands(t.Context(), group, false)
+	if got := names(subs); !reflect.DeepEqual(got, []string{"ls", "rm"}) || subs[0].Desc != "list containers" {
+		t.Errorf("dock container = %+v", subs)
+	}
+	remote := &Spec{Command: "dock remote", Source: "man", Page: filepath.Join(dir, "dock-remote.1")}
+	if got := manSubcommands(t.Context(), remote, false); len(got) != 0 {
+		t.Errorf("dock remote = %v", got)
+	}
+}
+
+// A tool documented only by --help, with a command group two levels deep.
+func TestLoadLineNestedHelp(t *testing.T) {
+	t.Setenv("COMMANDO_CACHE_DIR", t.TempDir())
+	t.Setenv("COMMANDO_NO_COMPLETIONS", "1")
+	bin := t.TempDir()
+	script := `#!/bin/sh
+case "$*" in
+"container ls --help") printf 'Usage:  fakedock container ls [OPTIONS]\n\nList containers\n\nOptions:\n  -a, --all     Show all containers\n  -q, --quiet   Only display IDs\n' ;;
+"container --help") printf 'Usage:  fakedock container COMMAND\n\nManage containers\n\nCommands:\n  ls          List containers\n  rm          Remove containers\n' ;;
+*) printf 'Usage:  fakedock [OPTIONS] COMMAND\n\nOptions:\n  -v, --version   Print version\n  -D, --debug     Debug mode\n\nCommands:\n  container   Manage containers\n  run         Run a container\n' ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(bin, "fakedock"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Chdir(t.TempDir())
+
+	for _, tc := range []struct {
+		words []string
+		cmd   string
+		n     int
+		subs  []string
+	}{
+		{[]string{"fakedock"}, "fakedock", 1, []string{"container", "run"}},
+		{[]string{"fakedock", "container"}, "fakedock container", 2, []string{"ls", "rm"}},
+		{[]string{"fakedock", "container", "ls", "-a"}, "fakedock container ls", 3, nil},
+		{[]string{"fakedock", "image"}, "fakedock", 1, []string{"container", "run"}},
+	} {
+		s, n, err := LoadLine(t.Context(), tc.words, false)
+		if err != nil {
+			t.Fatalf("%v: %v", tc.words, err)
+		}
+		if s.Command != tc.cmd || n != tc.n {
+			t.Errorf("%v = %q, %d; want %q, %d", tc.words, s.Command, n, tc.cmd, tc.n)
+		}
+		if got := names(Subcommands(t.Context(), s, false)); !reflect.DeepEqual(got, tc.subs) {
+			t.Errorf("%v subcommands = %v, want %v", tc.words, got, tc.subs)
+		}
 	}
 }

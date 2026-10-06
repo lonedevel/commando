@@ -325,7 +325,7 @@ func (m *Model) commandLines(w int) []string {
 
 // listBody renders the filter line and the visible option rows.
 func (m *Model) listBody(inner, height int) []string {
-	lines := make([]string, 0, height)
+	lines := make([]string, 0, max(0, height))
 	// Filter line.
 	icon := sHeader.Render("⌕ ")
 	if m.filtering {
@@ -509,7 +509,10 @@ func (m *Model) renderRow(k, labelW, nameW, widgetW, inner int) string {
 var hintRe = regexp.MustCompile(`^<?[A-Za-z][\w.-]*>?(\.\.\.)?$`)
 
 func argHint(s *manpage.Spec) string {
-	syn := strings.SplitN(s.Synopsis, "\n", 2)[0]
+	syn := strings.TrimSpace(strings.SplitN(s.Synopsis, "\n", 2)[0])
+	if len(syn) > 6 && strings.EqualFold(syn[:6], "usage:") {
+		syn = syn[6:]
+	}
 	fields := strings.Fields(strings.NewReplacer("[", "", "]", "").Replace(syn))
 	var hint []string
 	for _, f := range fields[min(len(strings.Fields(s.Command)), len(fields)):] {
@@ -704,6 +707,9 @@ func (m *Model) helpBody(w, h int) []string {
 }
 
 func (m *Model) scrollHelp(lines []string, h int) []string {
+	if h < 2 {
+		return lines[:min(len(lines), max(0, h))]
+	}
 	if len(lines) <= h {
 		m.helpScroll = 0
 		return lines

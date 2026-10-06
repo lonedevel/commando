@@ -54,7 +54,8 @@ commando cp
   ancillary, plumbing…). Type to filter, then press Enter to open that
   command's form. Your presets and recent git commands are listed first.
   Tools documented by `--help`, such as cargo, docker and kubectl, list the
-  commands from their "Commands:" sections. `commando git commit` skips the
+  commands from their "Commands:" sections. Commands that group others open
+  a second list: `docker` → `container` → `ls`. `commando git commit` skips the
   list and uses `git-commit(1)`; `commando cargo build` uses
   `cargo build --help`.
 - **Fast.** The form opens immediately and loads in the background. Parsed
@@ -140,8 +141,11 @@ Opening a tool that has subcommands without naming one, as in
 
 ![commando listing git's commands: a filter, a recent git commit line, and the main porcelain commands with their descriptions](docs/subcommands.png)
 
-The first entry opens the form for the tool's own options. Esc in a
-command's form returns to the list.
+The first entry opens the form for the tool's own options. A command that
+groups others, such as `docker container` or `kubectl config`, opens its own
+list (the title reads `docker › container`), and `commando docker container`
+starts there. Esc in a command's form returns to its list, and Esc in a
+list goes back up a level.
 
 ### Presets and recent commands
 
@@ -185,7 +189,7 @@ turn this off.
 | `Esc` | Close dropdown / clear filter / back to the command list / quit |
 
 In the command list: type to filter, `↑↓` choose, `Enter` open, `^O` the
-tool's manual, `Esc` clear the filter or quit.
+tool's manual, `Esc` clear the filter, go up a level, or quit.
 
 In the manual viewer: `↑↓`/`jk` scroll, `Space`/`b` page, `g`/`G` top and
 bottom, `/` search, `n`/`N` next and previous match, `Esc` back.
