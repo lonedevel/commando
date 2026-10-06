@@ -314,6 +314,8 @@ func optionLabel(o *manpage.Option) string {
 		d = d[:i+1]
 	}
 	switch {
+	case strings.HasSuffix(d, ":") && len(o.ChoiceDesc) > 0 && o.Label != "":
+		return o.Label // "File is of type c:" introduced the values
 	case d != "" && len(d) <= 200:
 		return d
 	case o.Label != "":

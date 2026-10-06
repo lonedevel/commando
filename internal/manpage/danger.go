@@ -14,8 +14,12 @@ var (
 	noPromptRe = regexp.MustCompile(`(?i)\b(?:never prompt|do not prompt|don't prompt|without prompting|without (?:asking|confirmation))\b`)
 	// "force deletion of dirs even if not empty"
 	forceRe = regexp.MustCompile(`(?i)\bforce (?:deletion|removal|overwrit)`)
-	// Removing these isn't destructive: "remove any trailing slashes".
-	harmlessRe = regexp.MustCompile(`(?i)\b(?:slash|slashes|whitespace|prefix|suffix|duplicates?|components|leading|trailing|characters|empty lines)\b`)
+	// Removing these isn't destructive: "remove any trailing slashes",
+	// "Remove intermediate containers after a successful build".
+	harmlessRe = regexp.MustCompile(`(?i)\b(?:slash|slashes|whitespace|prefix|suffix|duplicates?|components|leading|trailing|characters|empty lines|intermediate|temporary)\b`)
+	// Nor is cleaning up after itself: "Automatically remove the container
+	// … when it exits" (docker run --rm).
+	selfCleanRe = regexp.MustCompile(`(?i)\bwhen (?:it|they|the \w+) (?:exits?|finish(?:es)?|stops?|completes?|terminates?)\b`)
 )
 
 // negations that can precede a verb without making it destructive.
@@ -73,7 +77,7 @@ func dangerFromText(desc string) string {
 		return "forces deleting or overwriting"
 	}
 	m := destroyRe.FindStringSubmatch(first)
-	if m == nil || harmlessRe.MatchString(first) || negations[strings.ToLower(m[1])] ||
+	if m == nil || harmlessRe.MatchString(first) || selfCleanRe.MatchString(first) || negations[strings.ToLower(m[1])] ||
 		strings.Contains(strings.ToLower(first), "(default)") {
 		return ""
 	}

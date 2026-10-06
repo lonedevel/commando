@@ -2,13 +2,17 @@ package manpage
 
 import (
 	"os"
+	"strings"
 
 	"github.com/lonedevel/commando/internal/complete"
 )
 
 // ApplyCompletions turns text options into dropdowns using the value lists
 // from the command's shell completion definitions. Lists already inferred
-// from the manual are kept, after the completion's values.
+// from the manual are kept, after the completion's values. When the manual
+// has its own list, a completion value it never mentions is left out:
+// completion files are sometimes wrong (fish offers ls --sort=atime, which
+// GNU ls rejects).
 func ApplyCompletions(s *Spec, res complete.Result) {
 	if len(res.Values) == 0 {
 		return
@@ -29,6 +33,18 @@ func ApplyCompletions(s *Spec, res complete.Result) {
 		if vals == nil {
 			continue
 		}
+		if len(o.Choices) >= 2 {
+			var kept []string
+			for _, v := range vals {
+				if indexOfString(o.Choices, v) >= 0 || mentions(o.Desc, v) {
+					kept = append(kept, v)
+				}
+			}
+			vals = kept
+			if len(vals) == 0 {
+				continue
+			}
+		}
 		merged := append([]string(nil), vals...)
 		for _, c := range o.Choices {
 			if indexOfString(merged, c) < 0 {
@@ -39,6 +55,27 @@ func ApplyCompletions(s *Spec, res complete.Result) {
 		o.Choices = merged
 		o.ChoiceSource = src
 	}
+}
+
+// mentions reports whether text has word w, not as part of a longer word.
+func mentions(text, w string) bool {
+	for i := 0; ; {
+		j := strings.Index(text[i:], w)
+		if j < 0 {
+			return false
+		}
+		j += i
+		before := j == 0 || !isWordByte(text[j-1])
+		after := j+len(w) == len(text) || !isWordByte(text[j+len(w)])
+		if before && after {
+			return true
+		}
+		i = j + 1
+	}
+}
+
+func isWordByte(c byte) bool {
+	return c == '-' || c == '_' || c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
 }
 
 func indexOfString(list []string, s string) int {
