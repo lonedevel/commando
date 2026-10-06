@@ -1,5 +1,46 @@
 # Release notes
 
+## v0.6.0
+
+Opening a tool such as git, docker or cargo without naming a command now lists its commands first, so you can find the one you want before filling in its options.
+
+### New: choose a subcommand
+
+- `commando git` lists git's commands, each with a line on what it does, grouped the way git's manual groups them (main porcelain commands, ancillary commands, plumbing…).
+- Tools documented by `--help` list the commands from their "Commands:" sections, with aliases and groups: docker's Common and Management Commands, cargo's `build, b`, and `go`.
+- Type to filter by name or description, then press Enter to open that command's form. Esc in the form goes back to the list.
+- Your presets and recent commands for the tool and all its subcommands are listed first, and the first entry opens the tool's own options.
+- `^O` opens the tool's manual from the list.
+- Naming the command up front, as in `commando git commit` or `commando docker run`, skips the list as before.
+
+### Fixes
+
+- The argument hint in a subcommand's form no longer repeats the subcommand's name.
+
+### Known limitations
+
+- The list goes one level deep. Docker's management commands (`container`, `image`, `network`…) open docker's own form with the command as an argument, rather than a second list of `ls`, `prune` and so on.
+- Commands whose `--help` has no option list, such as `go build`, open the tool's form with the command filled in as an argument.
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.6.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.5.0
 
 Each of a command's arguments now gets its own labelled field, read from the usage line in its manual.
