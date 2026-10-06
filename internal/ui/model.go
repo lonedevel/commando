@@ -125,7 +125,8 @@ type Model struct {
 	presetIn   textinput.Model
 
 	// subcommand browser
-	toolMsg   loadedMsg // the tool itself, as loaded, to reopen its own form
+	toolMsg   loadedMsg  // the tool itself, as loaded, to reopen its own form
+	subStack  []subLevel // the lists above this one (docker, above docker container)
 	subs      []manpage.Subcommand
 	subItems  []subItem
 	subSel    int
@@ -227,8 +228,8 @@ func (m *Model) load(line string) tea.Cmd {
 		rest := words[min(n, len(words)):]
 		name := strings.Join(vals[:max(1, n)], " ")
 		var subs []manpage.Subcommand
-		if err == nil && n == 1 && len(rest) == 0 {
-			subs = manpage.Subcommands(spec, useCache)
+		if err == nil && len(rest) == 0 {
+			subs = manpage.Subcommands(context.Background(), spec, useCache)
 		}
 		return loadedMsg{spec: spec, rest: rest, err: err, elapsed: time.Since(start), cmd: name, subs: subs}
 	}
@@ -315,6 +316,12 @@ func (m *Model) onLoaded(msg loadedMsg) tea.Cmd {
 	}
 	if len(msg.subs) > 0 {
 		// A tool opened without a command: choose one first.
+		if m.fromSubs && m.mode == modeLoading {
+			// Picked from a list: Esc comes back to it.
+			m.subStack = append(m.subStack, subLevel{msg: m.toolMsg, subs: m.subs, filter: m.subFilter.Value(), sel: m.subSel})
+		} else {
+			m.subStack = nil
+		}
 		m.toolMsg = msg
 		m.toolMsg.subs = nil
 		m.subs = msg.subs

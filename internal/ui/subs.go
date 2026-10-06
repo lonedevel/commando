@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/lonedevel/commando/internal/manpage"
 	"github.com/lonedevel/commando/internal/store"
 )
 
@@ -29,6 +30,14 @@ type subItem struct {
 	kind  subKind
 	sub   int // index into m.subs, for subCmd
 	entry store.Entry
+}
+
+// subLevel is a list the browser can return to.
+type subLevel struct {
+	msg    loadedMsg
+	subs   []manpage.Subcommand
+	filter string
+	sel    int
 }
 
 // openSubs shows the browser for the tool loaded in m.toolMsg.
@@ -127,6 +136,17 @@ func (m *Model) updateSubs(k tea.KeyMsg) tea.Cmd {
 			m.filterSubs()
 			return nil
 		}
+		if n := len(m.subStack); n > 0 {
+			// Back up one level: docker container → docker.
+			up := m.subStack[n-1]
+			m.subStack = m.subStack[:n-1]
+			m.toolMsg, m.subs = up.msg, up.subs
+			m.subFilter.SetValue(up.filter)
+			m.subFilter.CursorEnd()
+			m.filterSubs()
+			m.subSel = min(up.sel, max(0, len(m.subItems)-1))
+			return nil
+		}
 		m.result = Result{}
 		return tea.Quit
 	case "up", "ctrl+p", "shift+tab":
@@ -217,7 +237,7 @@ func (m *Model) subLayout() (listW, listH, helpW, helpH int, side bool) {
 func (m *Model) viewSubs() string {
 	listW, listH, helpW, helpH, side := m.subLayout()
 	tool := m.toolMsg.spec
-	title := " " + logo() + "  " + sCmd.Render(tool.Command)
+	title := " " + logo() + "  " + sCmd.Render(strings.Join(strings.Fields(tool.Command), " › "))
 	if tool.Summary != "" {
 		title += sDim.Render(" — " + tool.Summary)
 	}
@@ -251,8 +271,11 @@ func (m *Model) viewSubs() string {
 		foot = " " + m.statusView()
 	} else {
 		esc := "quit"
-		if m.subFilter.Value() != "" {
+		switch {
+		case m.subFilter.Value() != "":
 			esc = "clear"
+		case len(m.subStack) > 0:
+			esc = "back"
 		}
 		foot = " " + keyHelp([][2]string{{"type", "filter"}, {"↑↓", "choose"}, {"⏎", "open"}, {"^O", "manual"}, {"esc", esc}})
 	}
@@ -290,9 +313,13 @@ func (m *Model) subsBody(inner, height int) []string {
 		var text string
 		switch it.kind {
 		case subOwn:
-			name := sBold.Render(fit(m.subTool(), nameW))
+			own := m.subTool()
+			if pad := nameW - ansi.StringWidth(own); pad > 0 {
+				own += strings.Repeat(" ", pad)
+			}
+			name := sBold.Render(own)
 			if on {
-				name = sCursor.Render(fit(m.subTool(), nameW))
+				name = sCursor.Render(own)
 			}
 			text = name + "  " + sDim.Render("its own options, without a command")
 		case subPreset, subRecent:
@@ -341,6 +368,9 @@ func (m *Model) subsBody(inner, height int) []string {
 		body = append(body, marker+fit(text, inner-2))
 	}
 	rows := height - len(lines)
+	if rows <= 0 {
+		return lines[:max(0, height)]
+	}
 	if sel < m.subOff+1 {
 		m.subOff = max(0, sel-1) // keep the heading above the selection in view
 	}
@@ -414,9 +444,16 @@ func (m *Model) subHelp(w int) []string {
 // subLine highlights a saved line, coloring the tool and its command.
 func (m *Model) subLine(line string) string {
 	words := strings.Fields(line)
+	// The words naming the tool ("docker container"), then a command of it.
+	nc := 0
+	for _, t := range strings.Fields(m.subTool()) {
+		if nc < len(words) && words[nc] == t {
+			nc++
+		}
+	}
 	for i, w := range words {
 		switch {
-		case i == 0, i == 1 && m.isSub(w):
+		case i < nc, i == nc && m.isSub(w):
 			words[i] = sCmd.Render(w)
 		case strings.HasPrefix(w, "-"):
 			words[i] = sNameB.Render(w)

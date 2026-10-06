@@ -150,7 +150,7 @@ func (m *Model) updateManual(k tea.KeyMsg) tea.Cmd {
 func (m *Model) viewManual() string {
 	w, h := m.w, m.h
 	inner := w - 4
-	body := make([]string, 0, h)
+	body := make([]string, 0, max(0, h))
 	end := min(len(m.manLines), m.manOff+m.manHeight())
 	q := m.manQuery
 	for _, l := range m.manLines[m.manOff:end] {
