@@ -55,6 +55,12 @@ commando cp
   `find`, `rsync`, `grep` and many more have them. Press Enter to load one
   into the form and adjust it. Examples the form can't hold exactly, such as
   ones using `!` or parentheses, are marked ⧉, and Enter copies them instead.
+- **Explain a command line.** `commando --explain 'tar -czvf backup.tgz src'`
+  prints what each option and argument means, from the manual, without
+  opening the form. It handles pipelines, `sudo`/`xargs`-style wrappers,
+  redirections and `find`'s `!` and parentheses, and marks risky options
+  with ⚠. The shell shortcut `Ctrl-X ?` explains the line you're typing, and
+  the preview beside presets, recent commands and examples explains each one.
 - **Presets and recent commands.** Every command you run is remembered, and
   `Ctrl-T` saves the current form as a named preset. The next time you open
   `commando tar`, your presets and recent tar commands are listed first: pick
@@ -116,6 +122,7 @@ commando git             # pick a git command, then its options
 commando grep -rn TODO   # start from an existing command line
 commando -p tar          # print the command instead of running it
 commando --long rsync    # prefer --long option names
+commando --explain 'rsync -av --delete src/ host:/backup'
 ```
 
 When you press Enter, commando prints the final command and runs it with
@@ -143,6 +150,9 @@ commando --init fish | source
 ```
 
 Then type a command, for example `rsync -a`, and press **Ctrl-X Ctrl-O**.
+Press **Ctrl-X ?** instead to explain the line below your prompt without
+changing it. (The bash shortcuts need bash 4 or later; macOS ships 3.2, so
+use Homebrew's bash or zsh.)
 
 ### Choosing a subcommand
 

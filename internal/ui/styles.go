@@ -28,24 +28,54 @@ var (
 )
 
 var (
-	sText    = lipgloss.NewStyle().Foreground(cText)
-	sDim     = lipgloss.NewStyle().Foreground(cDim)
-	sFaint   = lipgloss.NewStyle().Foreground(cFaint)
-	sBold    = lipgloss.NewStyle().Foreground(cText).Bold(true)
-	sName    = lipgloss.NewStyle().Foreground(cViolet)
-	sNameB   = lipgloss.NewStyle().Foreground(cViolet).Bold(true)
-	sValue   = lipgloss.NewStyle().Foreground(cYellow)
-	sArg     = lipgloss.NewStyle().Foreground(cGreen)
-	sCmd     = lipgloss.NewStyle().Foreground(cPink).Bold(true)
-	sOn      = lipgloss.NewStyle().Foreground(cGreen).Bold(true)
-	sHeader  = lipgloss.NewStyle().Foreground(cCyan).Bold(true)
-	sGroup   = lipgloss.NewStyle().Foreground(cOrange).Bold(true)
-	sKey     = lipgloss.NewStyle().Foreground(cPink).Bold(true)
-	sErr     = lipgloss.NewStyle().Foreground(cRed).Bold(true)
-	sOK      = lipgloss.NewStyle().Foreground(cGreen)
-	sCursor  = lipgloss.NewStyle().Foreground(cPink).Bold(true)
-	sMatchHL = lipgloss.NewStyle().Foreground(lipgloss.Color("#111111")).Background(cYellow)
+	sText    lipgloss.Style
+	sDim     lipgloss.Style
+	sFaint   lipgloss.Style
+	sBold    lipgloss.Style
+	sName    lipgloss.Style
+	sNameB   lipgloss.Style
+	sValue   lipgloss.Style
+	sArg     lipgloss.Style
+	sCmd     lipgloss.Style
+	sOn      lipgloss.Style
+	sHeader  lipgloss.Style
+	sGroup   lipgloss.Style
+	sKey     lipgloss.Style
+	sErr     lipgloss.Style
+	sOK      lipgloss.Style
+	sCursor  lipgloss.Style
+	sMatchHL lipgloss.Style
 )
+
+func init() { setStyles() }
+
+// UseRenderer makes the styles render for r's output: the terminal the
+// form runs on, or stdout for --explain, which may be a pipe (no color).
+// Styles keep the renderer they were made with, so they are remade here.
+func UseRenderer(r *lipgloss.Renderer) {
+	lipgloss.SetDefaultRenderer(r)
+	setStyles()
+}
+
+func setStyles() {
+	sText = lipgloss.NewStyle().Foreground(cText)
+	sDim = lipgloss.NewStyle().Foreground(cDim)
+	sFaint = lipgloss.NewStyle().Foreground(cFaint)
+	sBold = lipgloss.NewStyle().Foreground(cText).Bold(true)
+	sName = lipgloss.NewStyle().Foreground(cViolet)
+	sNameB = lipgloss.NewStyle().Foreground(cViolet).Bold(true)
+	sValue = lipgloss.NewStyle().Foreground(cYellow)
+	sArg = lipgloss.NewStyle().Foreground(cGreen)
+	sCmd = lipgloss.NewStyle().Foreground(cPink).Bold(true)
+	sOn = lipgloss.NewStyle().Foreground(cGreen).Bold(true)
+	sHeader = lipgloss.NewStyle().Foreground(cCyan).Bold(true)
+	sGroup = lipgloss.NewStyle().Foreground(cOrange).Bold(true)
+	sKey = lipgloss.NewStyle().Foreground(cPink).Bold(true)
+	sErr = lipgloss.NewStyle().Foreground(cRed).Bold(true)
+	sOK = lipgloss.NewStyle().Foreground(cGreen)
+	sCursor = lipgloss.NewStyle().Foreground(cPink).Bold(true)
+	sMatchHL = lipgloss.NewStyle().Foreground(lipgloss.Color("#111111")).Background(cYellow)
+}
 
 var kindColor = map[string]lipgloss.AdaptiveColor{
 	"flag": cGreen, "choice": cCyan, "number": cYellow, "path": cBlue, "text": cOrange,
