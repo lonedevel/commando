@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/lonedevel/commando/internal/cmdline"
@@ -612,5 +613,17 @@ func TestFirstClause(t *testing.T) {
 		if got := firstClause(in); got != want {
 			t.Errorf("firstClause(%q) = %q", in, got)
 		}
+	}
+}
+
+func TestApplyTheme(t *testing.T) {
+	defer ApplyTheme(lipgloss.DefaultRenderer(), "auto", nil)
+	ApplyTheme(lipgloss.DefaultRenderer(), "contrast", map[string]string{"danger": "#FF0000"})
+	if cText.Dark != "#FFFFFF" || cRed.Dark != "#FF0000" || cRed.Light != "#FF0000" {
+		t.Errorf("contrast: text %v, danger %v", cText, cRed)
+	}
+	ApplyTheme(lipgloss.DefaultRenderer(), "auto", map[string]string{"accent": "#123456"})
+	if cOption.Dark != "#123456" || cText.Dark != "#E5E7EB" {
+		t.Errorf("accent: option %v, text %v", cOption, cText)
 	}
 }

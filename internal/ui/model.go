@@ -16,6 +16,7 @@ import (
 	"github.com/muesli/termenv"
 
 	"github.com/lonedevel/commando/internal/cmdline"
+	"github.com/lonedevel/commando/internal/config"
 	"github.com/lonedevel/commando/internal/manpage"
 	"github.com/lonedevel/commando/internal/shellword"
 	"github.com/lonedevel/commando/internal/store"
@@ -29,6 +30,7 @@ type Config struct {
 	Output     *termenv.Output // for OSC52 clipboard fallback
 	Store      *store.Store    // presets and history; nil disables them
 	Confirm    bool            // ask before running a command that uses risky options
+	Settings   *config.Config  // the settings file's corrections; may be nil
 }
 
 // Result is what the user decided.
@@ -214,7 +216,7 @@ func (m *Model) Init() tea.Cmd {
 
 // load resolves the command (and subcommand) and parses its manual.
 func (m *Model) load(line string) tea.Cmd {
-	useCache := m.cfg.UseCache
+	useCache, settings := m.cfg.UseCache, m.cfg.Settings
 	return func() tea.Msg {
 		start := time.Now()
 		words := cmdline.Split(line)
@@ -226,6 +228,9 @@ func (m *Model) load(line string) tea.Cmd {
 			vals[i] = w.Value
 		}
 		spec, n, err := manpage.LoadLine(context.Background(), vals, useCache)
+		if err == nil {
+			settings.Apply(spec)
+		}
 		rest := words[min(n, len(words)):]
 		name := strings.Join(vals[:max(1, n)], " ")
 		var subs []manpage.Subcommand

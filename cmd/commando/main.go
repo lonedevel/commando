@@ -22,6 +22,7 @@ import (
 	"github.com/muesli/termenv"
 
 	"github.com/lonedevel/commando/internal/cmdline"
+	"github.com/lonedevel/commando/internal/config"
 	"github.com/lonedevel/commando/internal/manpage"
 	"github.com/lonedevel/commando/internal/store"
 	"github.com/lonedevel/commando/internal/ui"
@@ -48,6 +49,8 @@ Flags:
       --init SHELL   print shell integration for zsh, bash or fish
       --explain      describe each option and argument of a command line,
                      from its manual, without opening the form
+      --config       show where the settings file is, creating a commented one
+                     if there isn't one, and check it
       --dump         print the parsed options as JSON and exit
   -v, --version      print the version
   -h, --help         show this help
@@ -67,8 +70,8 @@ func main() {
 
 func run(argv []string) int {
 	var (
-		printOnly, long, noCache, dump, noHistory, explain bool
-		line, initShell                                    string
+		printOnly, long, noCache, dump, noHistory, explain, showConfig bool
+		line, initShell                                                string
 	)
 	i := 0
 	for ; i < len(argv); i++ {
@@ -100,6 +103,8 @@ func run(argv []string) int {
 			dump = true
 		case "--explain":
 			explain = true
+		case "--config":
+			showConfig = true
 		case "--no-history":
 			noHistory = true
 		case "-l", "--line":
@@ -117,6 +122,14 @@ func run(argv []string) int {
 			return 2
 		}
 	}
+	if showConfig {
+		return configCmd()
+	}
+	settings, err := config.Load()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "commando: settings:", err)
+	}
+	long = long || settings.Long
 	if initShell != "" {
 		s, ok := shellInit[initShell]
 		if !ok {
@@ -143,7 +156,7 @@ func run(argv []string) int {
 		return dumpSpec(line, !noCache)
 	}
 	if explain {
-		return explainLine(line, !noCache)
+		return explainLine(line, !noCache, settings)
 	}
 
 	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
@@ -154,17 +167,20 @@ func run(argv []string) int {
 	defer tty.Close()
 
 	// Detect colors from the terminal, not stdout (which may be a pipe).
-	ui.UseRenderer(lipgloss.NewRenderer(tty, termenv.WithColorCache(true)))
+	r := lipgloss.NewRenderer(tty, termenv.WithColorCache(true))
+	ui.UseRenderer(r)
+	ui.ApplyTheme(r, settings.Theme, settings.Colors)
 	out := termenv.NewOutput(tty)
 
 	var st *store.Store
-	if !noHistory && os.Getenv("COMMANDO_NO_HISTORY") == "" {
+	if !noHistory && settings.History && os.Getenv("COMMANDO_NO_HISTORY") == "" {
 		st = store.Load()
+		st.Max = settings.Recent
 	}
 	// Printing only puts the command on the prompt for review, so there is
 	// nothing to confirm.
-	confirm := !printOnly && os.Getenv("COMMANDO_NO_CONFIRM") == ""
-	model := ui.New(ui.Config{Line: line, UseCache: !noCache, PreferLong: long, Output: out, Store: st, Confirm: confirm})
+	confirm := !printOnly && settings.Confirm && os.Getenv("COMMANDO_NO_CONFIRM") == ""
+	model := ui.New(ui.Config{Line: line, UseCache: !noCache, PreferLong: long, Output: out, Store: st, Confirm: confirm, Settings: settings})
 	p := tea.NewProgram(model,
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
@@ -201,20 +217,49 @@ func run(argv []string) int {
 	return 1
 }
 
-func explainLine(line string, useCache bool) int {
+func explainLine(line string, useCache bool, settings *config.Config) int {
 	if strings.TrimSpace(line) == "" {
 		fmt.Fprintln(os.Stderr, "commando: --explain needs a command line")
 		return 2
 	}
 	// Color only when stdout is a terminal.
-	ui.UseRenderer(lipgloss.NewRenderer(os.Stdout))
+	r := lipgloss.NewRenderer(os.Stdout)
+	ui.UseRenderer(r)
+	ui.ApplyTheme(r, settings.Theme, settings.Colors)
 	width := 100
 	if w, _, err := term.GetSize(os.Stdout.Fd()); err == nil && w > 0 {
 		width = w
 	} else if c, err := strconv.Atoi(os.Getenv("COLUMNS")); err == nil && c > 0 {
 		width = c
 	}
-	fmt.Print(ui.Explain(context.Background(), line, width, useCache))
+	fmt.Print(ui.Explain(context.Background(), line, width, useCache, settings))
+	return 0
+}
+
+// configCmd shows the settings file, writing a commented starter file
+// when there is none, and reports any problems in it.
+func configCmd() int {
+	path := config.Path()
+	if path == "" {
+		fmt.Fprintln(os.Stderr, "commando: can't tell where the settings file goes (no home directory)")
+		return 1
+	}
+	wrote, err := config.WriteStarter(path)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "commando:", err)
+		return 1
+	}
+	if wrote {
+		fmt.Println("Wrote a commented settings file to", path)
+		fmt.Println("Edit it to change commando's defaults, colors and corrections.")
+		return 0
+	}
+	fmt.Println(path)
+	if _, err := config.Load(); err != nil {
+		fmt.Fprintln(os.Stderr, "commando: settings:", err)
+		return 1
+	}
+	fmt.Println("No problems found.")
 	return 0
 }
 

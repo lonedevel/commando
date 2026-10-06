@@ -191,6 +191,33 @@ shell history it holds the full command lines, including any tokens or
 passwords you typed. Pass `--no-history`, or set `COMMANDO_NO_HISTORY=1`, to
 turn this off.
 
+### Settings
+
+`commando --config` shows where the settings file is, writes a commented
+one if you don't have one yet, and checks it for mistakes. It's
+`~/.config/commando/config.toml` (or `$XDG_CONFIG_HOME/commando`; set
+`COMMANDO_CONFIG` to use another file). Flags and environment variables
+win over it.
+
+```toml
+long = true             # prefer --long option names
+confirm = true          # ask before running a command that uses a ⚠ option
+history = true          # remember commands; offer presets and recent ones
+recent = 20             # recent commands kept per command
+theme = "contrast"      # auto, dark, light or contrast
+
+[colors]                # by role: accent, command, header, option, value,
+danger = "#FF5555"      # argument, path, group, danger, text, dim, faint
+
+# Corrections for a command, by its full name.
+[commands."docker run"]
+safe = ["--rm"]                 # never mark these ⚠
+risky = ["--privileged"]        # always mark these ⚠
+
+[commands.ls.values]            # extra values for a dropdown
+"--quoting-style" = ["clocale"]
+```
+
 ### Keys
 
 | Key | Action |

@@ -85,3 +85,15 @@ func TestUnder(t *testing.T) {
 		t.Errorf("recent = %+v", recent)
 	}
 }
+
+func TestMax(t *testing.T) {
+	t.Setenv("COMMANDO_DATA_DIR", t.TempDir())
+	s := Load()
+	s.Max = 3
+	for i := 0; i < 6; i++ {
+		s.AddRecent("ls", "ls -"+string(rune('a'+i)), time.Now().Add(time.Duration(i)*time.Minute))
+	}
+	if _, r := s.For("ls"); len(r) != 3 || r[0].Line != "ls -f" {
+		t.Errorf("recent = %+v", r)
+	}
+}
