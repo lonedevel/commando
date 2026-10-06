@@ -40,11 +40,21 @@ commando cp
   `find -delete`, `tar --remove-files`, `git push --force`…), are marked with
   a red ⚠ and the help panel says why. If the command you built uses one,
   Enter asks you to confirm before running it.
+- **Expressions kept in order.** For `find`, the form puts the paths first,
+  then the tests in the order you turn them on, then actions such as
+  `-print`, `-exec` and `-delete`, so `find . -name '*.tmp' -delete` never
+  becomes `find . -delete -name '*.tmp'`. If a command line you start from
+  can't be kept exactly as typed, commando says so before you run it.
 - **Conflicts handled.** When the manual says an option is mutually exclusive
   with another (“This option cancels the -P option”), turning one on turns
   the other off.
 - **Pre-fills from what you typed.** `commando grep -rn TODO .` opens with
   `-r` and `-n` already checked and `TODO .` as arguments.
+- **Examples from the manual.** `^X` lists the ready-made command lines
+  from the manual's EXAMPLES section, each with its explanation: `git log`,
+  `find`, `rsync`, `grep` and many more have them. Press Enter to load one
+  into the form and adjust it. Examples the form can't hold exactly, such as
+  ones using `!` or parentheses, are marked ⧉, and Enter copies them instead.
 - **Presets and recent commands.** Every command you run is remembered, and
   `Ctrl-T` saves the current form as a named preset. The next time you open
   `commando tar`, your presets and recent tar commands are listed first: pick
@@ -181,7 +191,8 @@ turn this off.
 | `Ctrl-O` / `F1` / `?` | Open the full manual at the focused option |
 | `Shift-↑` `Shift-↓` | Scroll the help panel |
 | `Ctrl-S` | Switch between short (`-a`) and long (`--all`) names |
-| `Ctrl-L` | Show presets and recent commands |
+| `Ctrl-X` | Show examples from the manual |
+| `Ctrl-L` | Show presets, recent commands and examples |
 | `Ctrl-T` | Save the form as a named preset |
 | `Ctrl-Y` | Copy the command to the clipboard |
 | `Ctrl-R` | Clear everything |

@@ -17,44 +17,75 @@ const (
 	libBlank libKind = iota
 	libPreset
 	libRecent
+	libExample // from the manual's EXAMPLES section
 )
 
 type libItem struct {
-	kind  libKind
-	entry store.Entry
+	kind     libKind
+	entry    store.Entry
+	copyOnly bool // an example the form can't hold exactly; ⏎ copies it instead
 }
 
-// loadLibrary rebuilds the presets & recent list for the current command
-// and returns how many saved entries it holds.
+// loadLibrary rebuilds the presets, recent and examples list for the
+// current command and returns how many saved entries (presets and recent
+// commands) it holds.
 func (m *Model) loadLibrary() int {
 	m.libItems = []libItem{{kind: libBlank}}
 	m.libSel = 0
-	if m.cfg.Store == nil || m.spec == nil {
+	if m.spec == nil {
 		return 0
 	}
-	presets, recent := m.cfg.Store.For(m.spec.Command)
-	for _, p := range presets {
-		m.libItems = append(m.libItems, libItem{kind: libPreset, entry: p})
+	saved := 0
+	if m.cfg.Store != nil {
+		presets, recent := m.cfg.Store.For(m.spec.Command)
+		for _, p := range presets {
+			m.libItems = append(m.libItems, libItem{kind: libPreset, entry: p})
+		}
+		for _, r := range recent {
+			m.libItems = append(m.libItems, libItem{kind: libRecent, entry: r})
+		}
+		saved = len(presets) + len(recent)
 	}
-	for _, r := range recent {
-		m.libItems = append(m.libItems, libItem{kind: libRecent, entry: r})
+	for _, e := range m.spec.Examples {
+		words := cmdline.Split(e.Line)[len(strings.Fields(m.spec.Command)):]
+		m.libItems = append(m.libItems, libItem{
+			kind:     libExample,
+			entry:    store.Entry{Name: e.Desc, Line: e.Line},
+			copyOnly: !cmdline.Faithful(m.spec, words),
+		})
 	}
-	return len(presets) + len(recent)
+	return saved
 }
 
 func (m *Model) openLibrary() tea.Cmd {
-	if m.cfg.Store == nil {
-		return m.setStatus("Presets and history are turned off", true)
-	}
 	m.commitCustom()
 	m.dropdown = false
 	m.filtering = false
-	if m.loadLibrary() == 0 {
+	m.loadLibrary()
+	if len(m.libItems) == 1 {
+		if m.cfg.Store == nil {
+			return m.setStatus("Presets and history are turned off, and the manual has no examples", true)
+		}
 		return m.setStatus("No presets or recent commands yet. ^T saves this form as a preset.", false)
 	}
 	m.lib = true
-	m.libSel = min(1, len(m.libItems)-1)
+	m.libSel = 1
 	return m.focusCurrent()
+}
+
+// openExamples shows the list at the manual's first example.
+func (m *Model) openExamples() tea.Cmd {
+	if len(m.spec.Examples) == 0 {
+		return m.setStatus("The manual for "+m.spec.Command+" has no examples", false)
+	}
+	cmd := m.openLibrary()
+	for i, it := range m.libItems {
+		if it.kind == libExample {
+			m.libSel = i
+			break
+		}
+	}
+	return cmd
 }
 
 func (m *Model) closeLibrary() tea.Cmd {
@@ -75,19 +106,29 @@ func (m *Model) updateLibrary(k tea.KeyMsg) tea.Cmd {
 		m.libSel = n - 1
 	case "enter", " ":
 		it := m.libItems[m.libSel]
+		if it.copyOnly {
+			return m.copyText(it.entry.Line, "Copied the example. It uses operators or an order the form can't keep, so it's copied as written")
+		}
 		m.lib = false
 		if it.kind == libBlank {
 			return m.focusCurrent()
 		}
 		m.applyLine(it.entry.Line)
 		what := "recent command"
-		if it.kind == libPreset {
+		switch it.kind {
+		case libPreset:
 			what = "preset “" + it.entry.Name + "”"
+		case libExample:
+			what = "example"
 		}
 		return tea.Batch(m.focusCurrent(), m.setStatus("Loaded "+what+". Adjust it, then ⏎ to run.", false))
+	case "ctrl+y":
+		if it := m.libItems[m.libSel]; it.kind != libBlank {
+			return m.copyText(it.entry.Line, "Copied to clipboard")
+		}
 	case "d", "x", "delete", "backspace":
 		return m.deleteLibraryItem()
-	case "esc", "ctrl+l":
+	case "esc", "ctrl+l", "ctrl+x":
 		return m.closeLibrary()
 	case "ctrl+t":
 		m.lib = false
@@ -106,6 +147,8 @@ func (m *Model) deleteLibraryItem() tea.Cmd {
 		m.cfg.Store.DeletePreset(m.spec.Command, it.entry.Name)
 	case libRecent:
 		m.cfg.Store.DeleteRecent(m.spec.Command, it.entry.Line)
+	case libExample:
+		return m.setStatus("Examples come from the manual, so they can't be deleted", false)
 	default:
 		return nil
 	}
@@ -115,7 +158,7 @@ func (m *Model) deleteLibraryItem() tea.Cmd {
 		m.lib = false
 		m.focusCurrent()
 	}
-	m.libSel = min(sel, len(m.libItems)-1)
+	m.libSel = max(0, min(sel, len(m.libItems)-1))
 	if err != nil {
 		return m.setStatus("Could not save: "+err.Error(), true)
 	}
@@ -178,7 +221,7 @@ func (m *Model) updateNaming(k tea.KeyMsg) tea.Cmd {
 
 // libraryBody renders the presets & recent list in place of the options.
 func (m *Model) libraryBody(inner, height int) []string {
-	lines := []string{sDim.Render("Start from a saved command, or a blank form:"), ""}
+	lines := []string{sDim.Render("Start from a saved command, an example, or a blank form:"), ""}
 	rows := height - len(lines)
 	start := 0
 	if m.libSel >= rows {
@@ -189,8 +232,11 @@ func (m *Model) libraryBody(inner, height int) []string {
 		it := m.libItems[i]
 		if it.kind != lastKind && i > 0 && len(lines) < height-1 {
 			title := "Presets"
-			if it.kind == libRecent {
+			switch it.kind {
+			case libRecent:
 				title = "Recent"
+			case libExample:
+				title = "Examples from the manual"
 			}
 			lines = append(lines, sHeader.Render("━━ "+title+" ")+sFaint.Render(strings.Repeat("─", max(0, inner-len(title)-4))))
 		}
@@ -216,6 +262,14 @@ func (m *Model) libraryBody(inner, height int) []string {
 		case libRecent:
 			when := sFaint.Render(fit(ago(it.entry.Used), 9))
 			text = when + " " + m.styledLine(it.entry.Line, true)
+		case libExample:
+			text = m.styledLine(it.entry.Line, true)
+			if it.copyOnly {
+				text = sFaint.Render("⧉ ") + text
+			}
+			if it.entry.Name != "" {
+				text += sFaint.Render("  " + it.entry.Name)
+			}
 		}
 		lines = append(lines, marker+fit(text, inner-2))
 	}
@@ -254,8 +308,26 @@ func (m *Model) libraryHelp(w int) []string {
 		lines = append(lines, sBold.Render("★ "+it.entry.Name), sDim.Render("Preset, saved "+ago(it.entry.Used)), "")
 	case libRecent:
 		lines = append(lines, sBold.Render("Recent command"), sDim.Render("Run "+ago(it.entry.Used)), "")
+	case libExample:
+		lines = append(lines, sBold.Render("Example from the manual"), "")
+		if it.entry.Name != "" {
+			for _, l := range wrap(it.entry.Name, w) {
+				lines = append(lines, sText.Render(l))
+			}
+			lines = append(lines, "")
+		}
 	}
-	if it.kind != libBlank {
+	if it.kind == libExample {
+		for i, wl := range wrap(it.entry.Line, w) {
+			lines = append(lines, m.styledLine(wl, i == 0))
+		}
+		lines = append(lines, "")
+		if it.copyOnly {
+			lines = append(lines, dimWrap("⧉ The form can't hold this one exactly: it uses operators such as ! or ( ), repeats an option, or puts options after its arguments. ⏎ copies it to the clipboard as written.", w)...)
+		} else {
+			lines = append(lines, dimWrap("⏎ loads it into the form so you can adjust it before running.", w)...)
+		}
+	} else if it.kind != libBlank {
 		for i, wl := range wrap(it.entry.Line, w) {
 			lines = append(lines, m.styledLine(wl, i == 0))
 		}
@@ -287,4 +359,24 @@ func dimWrap(s string, w int) []string {
 		out = append(out, sDim.Render(l))
 	}
 	return out
+}
+
+// libraryTitle names what the list holds.
+func (m *Model) libraryTitle() string {
+	saved, examples := false, false
+	for _, it := range m.libItems {
+		switch it.kind {
+		case libPreset, libRecent:
+			saved = true
+		case libExample:
+			examples = true
+		}
+	}
+	switch {
+	case saved && examples:
+		return "Presets, recent & examples"
+	case examples:
+		return "Examples"
+	}
+	return "Presets & recent"
 }

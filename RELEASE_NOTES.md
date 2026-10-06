@@ -1,5 +1,45 @@
 # Release notes
 
+## v0.8.0
+
+Start from the examples in a command's manual, and build `find` commands that run as intended.
+
+### New: examples from the manual
+
+- Press `^X` to list the example command lines from the manual's EXAMPLES section, each with its explanation. `git log`, `find`, `rsync` and the macOS `grep`, `ls` and `sed` pages all have them. Tools whose `--help` has an "Examples:" section (kubectl and others) are covered too.
+- Press Enter to load an example into the form, then adjust it and run it. Examples also appear at the end of the `^L` list.
+- Examples the form can't hold exactly are marked ⧉, and Enter copies them to the clipboard as written instead. These are ones that use `!` or parentheses in `find`, repeat an option, or put options after arguments.
+- Examples that pipe into another command or redirect output are left out.
+
+### Fixed: find expressions
+
+- Forms for `find` used to put every option before the paths (`find -name x .`), which `find` rejects. The form now puts the paths first, then the tests in the order you turn them on, then actions such as `-print`, `-exec` and `-delete`.
+- Actions always go after the tests, so a form never builds `find . -delete -name '*.tmp'`, which would delete everything.
+- When a command line you start from can't be kept exactly as typed, commando now warns you to check it before running. Before, it was reordered silently.
+
+### Also
+
+- The argument hint leaves out bracketed options: `go build` shows "packages" instead of "output build flags".
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.8.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.7.0
 
 Commands that group other commands now open their own list, so `commando docker` → `container` → `ls` takes you to the right form.

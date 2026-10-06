@@ -96,3 +96,89 @@ func TestPrefill(t *testing.T) {
 		t.Errorf("unknown cluster: %+v %q", vals, args)
 	}
 }
+
+func TestExpressionOrder(t *testing.T) {
+	spec := &manpage.Spec{
+		Command:  "find",
+		Synopsis: "find [-H | -L | -P] [-x] path ... [expression]",
+		Options: []manpage.Option{
+			{Names: []string{"-L"}},
+			{Names: []string{"-x"}},
+			{Names: []string{"-delete"}},
+			{Names: []string{"-name"}, Arg: "pattern"},
+			{Names: []string{"-type"}, Arg: "t"},
+		},
+	}
+	vals := make([]Value, len(spec.Options))
+	vals[0] = Value{On: true, Count: 1}
+	vals[1] = Value{On: true, Count: 1}
+	vals[2] = Value{On: true, Count: 1, Seq: 1}                // turned on first…
+	vals[3] = Value{On: true, Count: 1, Text: "*.tmp", Seq: 3} // …then -name
+	vals[4] = Value{On: true, Count: 1, Text: "f", Seq: 2}
+	// Options, then the paths, then the tests in order, then the actions.
+	if got := Render(Build(spec, vals, ".", false)); got != "find -Lx . -type f -name '*.tmp' -delete" {
+		t.Errorf("Build = %q", got)
+	}
+
+	// Prefill keeps the order typed, and Faithful accepts it.
+	words := Split(`. -name '*.c' -type f -delete`)
+	vals, args := Prefill(spec, words)
+	if got := Render(Build(spec, vals, args, false)); got != "find . -name '*.c' -type f -delete" {
+		t.Errorf("round trip = %q", got)
+	}
+	if !Faithful(spec, words) {
+		t.Error("Faithful = false for a plain expression")
+	}
+	for _, line := range []string{
+		`. \( -name a -o -name b \)`, // operators between tests
+		`. -name a -name b`,          // one option's value twice
+		`-name a .`,                  // a path after the expression
+	} {
+		if Faithful(spec, Split(line)) {
+			t.Errorf("Faithful(%q) = true", line)
+		}
+	}
+}
+
+func TestFaithful(t *testing.T) {
+	spec := &manpage.Spec{
+		Command:  "git log",
+		Synopsis: "git log [<options>] [<revision-range>] [[--] <path>...]",
+		Options: []manpage.Option{
+			{Names: []string{"--not"}},
+			{Names: []string{"--remotes"}, Arg: "pattern", ArgOptional: true, LongEquals: true},
+			{Names: []string{"-p"}},
+			{Names: []string{"-v"}, Repeatable: true},
+		},
+	}
+	for line, want := range map[string]bool{
+		`-p master`:                     true,
+		`-v -v -p`:                      true,
+		`--not --remotes=origin master`: true,
+		`master --not --remotes=origin`: false, // --not applies to what follows
+		`-p -- path -v`:                 true,  // after --, all positional
+	} {
+		if got := Faithful(spec, Split(line)); got != want {
+			t.Errorf("Faithful(%q) = %v, want %v", line, got, want)
+		}
+	}
+}
+
+func TestFaithfulKeepsActionOrder(t *testing.T) {
+	spec := &manpage.Spec{
+		Command:  "find",
+		Synopsis: "find path ... [expression]",
+		Options: []manpage.Option{
+			{Names: []string{"-name"}, Arg: "pattern"},
+			{Names: []string{"-print"}},
+			{Names: []string{"-quit"}},
+		},
+	}
+	if !Faithful(spec, Split(`/ -name needle -print -quit`)) {
+		t.Error("print then quit should load")
+	}
+	// The form would move -print after -name, changing what this does.
+	if Faithful(spec, Split(`/ -print -name needle`)) {
+		t.Error("an action before a test can't load as written")
+	}
+}

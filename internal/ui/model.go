@@ -101,6 +101,7 @@ type Model struct {
 	args          textinput.Model
 	argInputs     []*textinput.Model // one per positional argument, when the usage line was readable
 	warnedMissing bool               // Enter was pressed once with required arguments empty
+	seq           int                // last Value.Seq given out: the order options were turned on
 	filter        textinput.Model
 	filtering     bool
 	rows          []row
@@ -357,6 +358,9 @@ func (m *Model) onLoaded(msg loadedMsg) tea.Cmd {
 		note = m.setStatus("No option list for "+m.subPicked+", so this is "+msg.cmd+"'s form with the command as an argument", false)
 	}
 	m.subPicked = ""
+	if note == nil && len(msg.rest) > 0 && !cmdline.Faithful(m.spec, msg.rest) {
+		note = m.setStatus("The form changed the order of what you typed (or dropped a repeat). Check the command below before running it.", true)
+	}
 	// Offer saved presets and recent commands when starting from scratch.
 	if len(msg.rest) == 0 && m.loadLibrary() > 0 {
 		m.lib = true
@@ -369,6 +373,10 @@ func (m *Model) onLoaded(msg loadedMsg) tea.Cmd {
 func (m *Model) fill(rest []cmdline.Word) {
 	vals, args := cmdline.Prefill(m.spec, rest)
 	m.values = vals
+	m.seq = 0
+	for _, v := range vals {
+		m.seq = max(m.seq, v.Seq)
+	}
 	m.inputs = map[int]*textinput.Model{}
 	for i, o := range m.spec.Options {
 		if o.Kind == manpage.KindFlag {
@@ -827,6 +835,18 @@ func (m *Model) tokens() []cmdline.Token {
 	if m.spec == nil {
 		return nil
 	}
+	// Note when each option was turned on: an expression's tests and
+	// actions (find -name … -delete) run in that order.
+	for i := range m.values {
+		v := &m.values[i]
+		switch {
+		case !v.On:
+			v.Seq = 0
+		case v.Seq == 0:
+			m.seq++
+			v.Seq = m.seq
+		}
+	}
 	return cmdline.Build(m.spec, m.values, m.argsText(), m.preferLong)
 }
 
@@ -955,6 +975,8 @@ func (m *Model) updateForm(k tea.KeyMsg) tea.Cmd {
 		return m.startFilter("")
 	case "ctrl+l":
 		return m.openLibrary()
+	case "ctrl+x":
+		return m.openExamples()
 	case "ctrl+t":
 		return m.startNaming()
 	case "ctrl+o", "f1":
@@ -1170,19 +1192,23 @@ func (m *Model) startFilter(initial string) tea.Cmd {
 }
 
 func (m *Model) copy() tea.Cmd {
-	s := cmdline.Render(m.tokens())
+	return m.copyText(cmdline.Render(m.tokens()), "Copied to clipboard")
+}
+
+// copyText puts s on the clipboard and reports done.
+func (m *Model) copyText(s, done string) tea.Cmd {
 	for _, c := range [][]string{{"pbcopy"}, {"wl-copy"}, {"xclip", "-selection", "clipboard"}} {
 		if _, err := exec.LookPath(c[0]); err == nil {
 			cmd := exec.Command(c[0], c[1:]...)
 			cmd.Stdin = strings.NewReader(s)
 			if cmd.Run() == nil {
-				return m.setStatus("Copied to clipboard", false)
+				return m.setStatus(done, false)
 			}
 		}
 	}
 	if m.cfg.Output != nil {
 		m.cfg.Output.Copy(s)
-		return m.setStatus("Copied to clipboard (OSC 52)", false)
+		return m.setStatus(done+" (OSC 52)", false)
 	}
 	return m.setStatus("No clipboard available", true)
 }
