@@ -23,7 +23,12 @@ func Prefill(spec *manpage.Spec, words []Word) (values []Value, args string) {
 
 // item is one option (opt >= 0) or positional word (opt < 0), in the order
 // it appeared on the command line.
-type item struct{ opt int }
+type item struct {
+	opt        int
+	raw        string // as written: "-f backup.tgz", "--exclude=.git", "src"
+	val        string // the option's value, or the word's, unquoted
+	positional bool   // after "--": an argument whatever it looks like
+}
 
 // Faithful reports whether the form can hold words exactly: rebuilding
 // them gives the same command. That isn't so when an option follows the
@@ -90,9 +95,9 @@ func scan(spec *manpage.Spec, words []Word) (values []Value, rest []string, item
 			byName[n] = i
 		}
 	}
-	set := func(i int, text string) {
+	set := func(i int, text, raw string) {
 		v := &values[i]
-		items = append(items, item{opt: i})
+		items = append(items, item{opt: i, raw: raw, val: text})
 		if v.On && !spec.Options[i].TakesArg() && spec.Options[i].Repeatable {
 			v.Count++
 		} else {
@@ -105,44 +110,49 @@ func scan(spec *manpage.Spec, words []Word) (values []Value, rest []string, item
 			v.Text = text
 		}
 	}
-	addRest := func(raw string) {
-		rest = append(rest, raw)
-		items = append(items, item{opt: -1})
+	addRest := func(w Word, positional bool) {
+		rest = append(rest, w.Raw)
+		items = append(items, item{opt: -1, raw: w.Raw, val: w.Value, positional: positional})
 	}
 	for k := 0; k < len(words); k++ {
 		w := words[k]
 		s := w.Value
-		next := func() (string, bool) {
+		next := func() (string, string, bool) {
 			if k+1 < len(words) {
 				k++
-				return words[k].Value, true
+				return words[k].Value, words[k].Raw, true
 			}
-			return "", false
+			return "", "", false
 		}
 		switch {
 		case s == "--":
-			for _, r := range words[k:] {
-				addRest(r.Raw)
+			addRest(w, false)
+			for _, r := range words[k+1:] {
+				addRest(r, true)
 			}
 			k = len(words)
 		case strings.HasPrefix(s, "--") || (strings.HasPrefix(s, "-") && len(s) > 2 && hasExact(byName, s)):
 			name, val, hasEq := strings.Cut(s, "=")
 			i, ok := byName[name]
 			if !ok {
-				addRest(w.Raw)
+				addRest(w, false)
 				continue
 			}
 			o := &spec.Options[i]
+			raw := w.Raw
 			if o.TakesArg() && !hasEq && !o.ArgOptional {
-				val, _ = next()
+				var vraw string
+				if val, vraw, ok = next(); ok {
+					raw += " " + vraw
+				}
 			}
-			set(i, val)
+			set(i, val, raw)
 		case strings.HasPrefix(s, "-") && len(s) > 1:
-			if !applyCluster(spec, byName, s, set, next) {
-				addRest(w.Raw)
+			if !applyCluster(spec, byName, w.Raw, s, set, next) {
+				addRest(w, false)
 			}
 		default:
-			addRest(w.Raw)
+			addRest(w, false)
 		}
 	}
 	return values, rest, items
@@ -156,10 +166,10 @@ func hasExact(m map[string]int, s string) bool {
 
 // applyCluster handles "-la", "-n5", "-C 3". It only applies anything when
 // every letter is known, so unknown words pass through untouched.
-func applyCluster(spec *manpage.Spec, byName map[string]int, s string, set func(int, string), next func() (string, bool)) bool {
+func applyCluster(spec *manpage.Spec, byName map[string]int, raw, s string, set func(int, string, string), next func() (string, string, bool)) bool {
 	type hit struct {
-		i   int
-		val string
+		i        int
+		val, raw string
 	}
 	var hits []hit
 	needNext := -1
@@ -171,23 +181,29 @@ func applyCluster(spec *manpage.Spec, byName map[string]int, s string, set func(
 		o := &spec.Options[i]
 		if o.TakesArg() {
 			if j+1 < len(s) {
-				hits = append(hits, hit{i, s[j+1:]})
+				hits = append(hits, hit{i, s[j+1:], s[j:]})
 			} else if !o.ArgOptional {
 				needNext = len(hits)
-				hits = append(hits, hit{i, ""})
+				hits = append(hits, hit{i, "", s[j:]})
 			} else {
-				hits = append(hits, hit{i, ""})
+				hits = append(hits, hit{i, "", s[j:]})
 			}
 			break
 		}
-		hits = append(hits, hit{i, ""})
+		hits = append(hits, hit{i, "", s[j : j+1]})
 	}
 	if needNext >= 0 {
-		v, _ := next()
-		hits[needNext].val = v
+		if v, vraw, ok := next(); ok {
+			hits[needNext].val = v
+			hits[needNext].raw += " " + vraw
+		}
 	}
 	for _, h := range hits {
-		set(h.i, h.val)
+		r := "-" + h.raw
+		if len(hits) == 1 && needNext < 0 {
+			r = raw // as typed, quotes and all
+		}
+		set(h.i, h.val, r)
 	}
 	return true
 }

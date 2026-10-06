@@ -11,12 +11,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/term"
 	"github.com/muesli/termenv"
 
 	"github.com/lonedevel/commando/internal/cmdline"
@@ -44,6 +46,8 @@ Flags:
       --no-cache     re-parse the manual even if it is cached
       --no-history   don't record this command or show presets and history
       --init SHELL   print shell integration for zsh, bash or fish
+      --explain      describe each option and argument of a command line,
+                     from its manual, without opening the form
       --dump         print the parsed options as JSON and exit
   -v, --version      print the version
   -h, --help         show this help
@@ -53,6 +57,7 @@ Examples:
   commando grep -rn TODO .        # pre-fills -r and -n
   commando git                   # choose a git command, then its options
   commando git commit
+  commando --explain 'tar -czvf backup.tgz --exclude=.git src'
   eval "$(commando --init zsh)"  # then press Ctrl-X Ctrl-O on any command line
 `
 
@@ -62,8 +67,8 @@ func main() {
 
 func run(argv []string) int {
 	var (
-		printOnly, long, noCache, dump, noHistory bool
-		line, initShell                           string
+		printOnly, long, noCache, dump, noHistory, explain bool
+		line, initShell                                    string
 	)
 	i := 0
 	for ; i < len(argv); i++ {
@@ -93,6 +98,8 @@ func run(argv []string) int {
 			noCache = true
 		case "--dump":
 			dump = true
+		case "--explain":
+			explain = true
 		case "--no-history":
 			noHistory = true
 		case "-l", "--line":
@@ -119,7 +126,10 @@ func run(argv []string) int {
 		fmt.Print(s)
 		return 0
 	}
-	if rest := argv[i:]; len(rest) > 0 {
+	if rest := argv[i:]; explain && len(rest) == 1 {
+		// One argument is the whole line: commando --explain 'find . | xargs rm'
+		line = strings.TrimSpace(line + " " + rest[0])
+	} else if len(rest) > 0 {
 		quoted := make([]string, len(rest))
 		for k, r := range rest {
 			quoted[k] = cmdline.Quote(r)
@@ -132,6 +142,9 @@ func run(argv []string) int {
 	if dump {
 		return dumpSpec(line, !noCache)
 	}
+	if explain {
+		return explainLine(line, !noCache)
+	}
 
 	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	if err != nil {
@@ -141,7 +154,7 @@ func run(argv []string) int {
 	defer tty.Close()
 
 	// Detect colors from the terminal, not stdout (which may be a pipe).
-	lipgloss.SetDefaultRenderer(lipgloss.NewRenderer(tty, termenv.WithColorCache(true)))
+	ui.UseRenderer(lipgloss.NewRenderer(tty, termenv.WithColorCache(true)))
 	out := termenv.NewOutput(tty)
 
 	var st *store.Store
@@ -186,6 +199,23 @@ func run(argv []string) int {
 	err = syscall.Exec(shell, []string{shell, "-c", res.Command}, os.Environ())
 	fmt.Fprintln(os.Stderr, "commando:", err)
 	return 1
+}
+
+func explainLine(line string, useCache bool) int {
+	if strings.TrimSpace(line) == "" {
+		fmt.Fprintln(os.Stderr, "commando: --explain needs a command line")
+		return 2
+	}
+	// Color only when stdout is a terminal.
+	ui.UseRenderer(lipgloss.NewRenderer(os.Stdout))
+	width := 100
+	if w, _, err := term.GetSize(os.Stdout.Fd()); err == nil && w > 0 {
+		width = w
+	} else if c, err := strconv.Atoi(os.Getenv("COLUMNS")); err == nil && c > 0 {
+		width = c
+	}
+	fmt.Print(ui.Explain(context.Background(), line, width, useCache))
+	return 0
 }
 
 func dumpSpec(line string, useCache bool) int {

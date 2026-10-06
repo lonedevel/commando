@@ -334,8 +334,25 @@ func (m *Model) libraryHelp(w int) []string {
 		lines = append(lines, "")
 		lines = append(lines, dimWrap("⏎ loads it into the form so you can adjust it before running. d deletes it.", w)...)
 	}
+	if it.kind != libBlank {
+		if parts := m.explainEntry(it.entry.Line); len(parts) > 0 {
+			lines = append(lines, "", sHeader.Render("What it does"))
+			lines = append(lines, explainParts(m.spec, parts, w, true)...)
+		}
+	}
 	lines = append(lines, "")
 	return append(lines, dimWrap("^T saves the current form as a preset.", w)...)
+}
+
+// explainEntry breaks a saved line for this command into its options and
+// arguments.
+func (m *Model) explainEntry(line string) []cmdline.Part {
+	words := cmdline.Split(line)
+	n := len(strings.Fields(m.spec.Command))
+	if len(words) <= n {
+		return nil
+	}
+	return cmdline.Explain(m.spec, words[n:])
 }
 
 func ago(t time.Time) string {
