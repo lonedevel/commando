@@ -1,5 +1,34 @@
 # Release notes
 
+## v0.10.1
+
+Fixes and polish.
+
+- `ls --sort` offers only the values GNU ls accepts. Values from the shell's completion files that the manual never mentions are now left out when the manual has its own list. fish's file for ls offered `--sort=atime`, `status`, `access` and `use`, which ls rejects.
+- Dropdown rows show the short form of a value's meaning ("Symbolic link"). The help panel keeps the full text.
+- `docker run --rm` and `docker build --rm` no longer get a ⚠: they only remove what the command itself created.
+- GNU `grep --binary-files`: the meaning shown for `binary` is now the manual's description of the default.
+- `find -type` is labelled "File is of type" rather than "File is of type c:".
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.10.1
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.10.0
 
 Dropdowns now say what each value means, taken from the manual.
