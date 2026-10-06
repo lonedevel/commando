@@ -18,7 +18,7 @@ import (
 )
 
 // parserVersion is part of the cache key; bump it when parsing changes.
-const parserVersion = "9"
+const parserVersion = "10"
 
 // RenderWidth is the column width manual pages are rendered at.
 const RenderWidth = 100

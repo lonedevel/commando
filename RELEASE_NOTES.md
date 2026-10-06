@@ -1,5 +1,40 @@
 # Release notes
 
+## v0.10.0
+
+Dropdowns now say what each value means, taken from the manual.
+
+### New: value meanings
+
+- When the manual explains an option's values, the dropdown shows each meaning beside its value. For example, `find -type` lists `b` Block special, `d` Directory, `f` Regular file and `l` Symbolic link.
+- The help panel lists every value with its meaning and marks the one you picked.
+- `commando --explain` adds the meaning of the value given: `find . -type d` reads "d: Directory".
+- Meanings come from lists under the option (`find -type`, `tar --format`, `tar --backup`, curl `--ftp-method`), one paragraph per value (`git log --date=relative …`), "If TYPE is text, …" sentences (`grep --binary-files`), and lists that name the matching flag (`ls --sort`: size → "Like -S: Sort by file size, largest first").
+
+### New dropdowns
+
+- macOS `find -type` and `grep --binary-files`, and `git log --date` (relative, iso, iso-strict, rfc, short, raw, human, unix…), were text fields before.
+- Lists of other things stay text fields: unit suffixes (`find -atime 3d`), environment variables (tar `--to-command`) and format variables (curl `-w`).
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.10.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.9.0
 
 Find out what a command line does before you run it.

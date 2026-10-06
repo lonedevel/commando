@@ -20,7 +20,10 @@ commando cp
   - flags → checkboxes (repeatable flags such as `-v` count up with ←/→)
   - enumerated values → dropdowns (`--color` → always / auto / never),
     taken from the manual and from zsh and fish completion definitions,
-    with a "custom value…" entry in case a list is incomplete
+    with a "custom value…" entry in case a list is incomplete. Where the
+    manual says what each value means (`find -type`: `d` directory, `f`
+    regular file…; `tar --format`; `git log --date`), the dropdown and the
+    help panel show it
   - mutually exclusive flags → radio buttons (“The -1, -C, -x, and -l
     options all override each other” becomes a *Format* group)
   - numbers → digit-only fields with `+`/`-` stepping
