@@ -3,6 +3,7 @@ package cmdline
 
 import (
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/lonedevel/commando/internal/manpage"
@@ -13,6 +14,7 @@ type Value struct {
 	On    bool   // flag set / option present
 	Count int    // repeat count for repeatable flags (>=1 when On)
 	Text  string // argument value
+	Seq   int    // when it was turned on, to keep an expression's order (find)
 }
 
 // TokenKind classifies tokens for syntax highlighting.
@@ -66,6 +68,10 @@ func Quote(s string) string {
 // preferLong chooses --long names over -s short names where both exist.
 func Build(spec *manpage.Spec, values []Value, args string, preferLong bool) []Token {
 	toks := []Token{{Text: spec.Command, Kind: TokCommand}}
+	// In an expression (find), tests and actions follow the paths, in the
+	// order they were turned on.
+	expr := spec.Expression()
+	primary := func(i int) bool { return expr && spec.Options[i].Primary() }
 
 	// Cluster short boolean flags: -la
 	cluster := ""
@@ -73,7 +79,7 @@ func Build(spec *manpage.Spec, values []Value, args string, preferLong bool) []T
 	if !preferLong {
 		for i, v := range values {
 			o := &spec.Options[i]
-			if !v.On || o.TakesArg() {
+			if !v.On || o.TakesArg() || primary(i) {
 				continue
 			}
 			if n := shortName(o); len(n) == 2 && isClusterable(n[1]) {
@@ -86,38 +92,83 @@ func Build(spec *manpage.Spec, values []Value, args string, preferLong bool) []T
 		}
 	}
 
+	var primaries []int
 	for i, v := range values {
-		o := &spec.Options[i]
 		if !v.On || clustered[i] {
 			continue
 		}
-		name := pickName(o, preferLong)
-		if !o.TakesArg() {
-			for c := 0; c < max(1, v.Count); c++ {
-				toks = append(toks, Token{Text: name, Kind: TokFlag})
-			}
+		if primary(i) {
+			primaries = append(primaries, i)
 			continue
 		}
-		if v.Text == "" {
-			if o.ArgOptional {
-				toks = append(toks, Token{Text: name, Kind: TokFlag})
-			}
-			continue
-		}
-		val := Quote(v.Text)
-		switch {
-		case strings.HasPrefix(name, "--") && (o.LongEquals || o.ArgOptional):
-			toks = append(toks, Token{Text: name + "=", Kind: TokFlag}, Token{Text: val, Kind: TokValue, Attach: true})
-		case !strings.HasPrefix(name, "--") && o.ArgOptional:
-			toks = append(toks, Token{Text: name, Kind: TokFlag}, Token{Text: val, Kind: TokValue, Attach: true})
-		default:
-			toks = append(toks, Token{Text: name, Kind: TokFlag}, Token{Text: val, Kind: TokValue})
-		}
+		toks = appendOption(toks, &spec.Options[i], v, preferLong)
 	}
 	if a := strings.TrimSpace(args); a != "" {
 		toks = append(toks, Token{Text: a, Kind: TokArg})
 	}
+	sortExpression(spec, values, primaries)
+	for _, i := range primaries {
+		toks = appendOption(toks, &spec.Options[i], values[i], preferLong)
+	}
 	return toks
+}
+
+// sortExpression orders an expression's tests and actions: in the order
+// they were turned on, but actions after the tests that pick the files, as
+// find . -delete -name x would delete everything.
+func sortExpression(spec *manpage.Spec, values []Value, primaries []int) {
+	sort.SliceStable(primaries, func(a, b int) bool {
+		if aa, ab := isAction(&spec.Options[primaries[a]]), isAction(&spec.Options[primaries[b]]); aa != ab {
+			return ab
+		}
+		sa, sb := values[primaries[a]].Seq, values[primaries[b]].Seq
+		if sa == 0 || sb == 0 {
+			return sa != 0 && sb == 0 // ordered ones first
+		}
+		return sa < sb
+	})
+}
+
+// findActions are find's actions, which act on the files its tests pick.
+var findActions = map[string]bool{
+	"-delete": true, "-exec": true, "-execdir": true, "-ok": true, "-okdir": true,
+	"-print": true, "-print0": true, "-printf": true, "-fprint": true, "-fprint0": true,
+	"-fprintf": true, "-ls": true, "-fls": true, "-quit": true,
+}
+
+func isAction(o *manpage.Option) bool {
+	for _, n := range o.Names {
+		if findActions[n] {
+			return true
+		}
+	}
+	return false
+}
+
+// appendOption renders one set option and its value.
+func appendOption(toks []Token, o *manpage.Option, v Value, preferLong bool) []Token {
+	name := pickName(o, preferLong)
+	if !o.TakesArg() {
+		for c := 0; c < max(1, v.Count); c++ {
+			toks = append(toks, Token{Text: name, Kind: TokFlag})
+		}
+		return toks
+	}
+	if v.Text == "" {
+		if o.ArgOptional {
+			toks = append(toks, Token{Text: name, Kind: TokFlag})
+		}
+		return toks
+	}
+	val := Quote(v.Text)
+	switch {
+	case strings.HasPrefix(name, "--") && (o.LongEquals || o.ArgOptional):
+		return append(toks, Token{Text: name + "=", Kind: TokFlag}, Token{Text: val, Kind: TokValue, Attach: true})
+	case !strings.HasPrefix(name, "--") && o.ArgOptional:
+		return append(toks, Token{Text: name, Kind: TokFlag}, Token{Text: val, Kind: TokValue, Attach: true})
+	default:
+		return append(toks, Token{Text: name, Kind: TokFlag}, Token{Text: val, Kind: TokValue})
+	}
 }
 
 func isClusterable(c byte) bool {

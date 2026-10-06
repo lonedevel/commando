@@ -536,3 +536,52 @@ func TestNestedSubcommandBrowser(t *testing.T) {
 		t.Fatalf("direct: mode=%v stack=%d", d.mode, len(d.subStack))
 	}
 }
+
+func TestExamples(t *testing.T) {
+	m := newForm(t, "bsd-find", "find", 120, 30) // no store: history off
+	if len(m.spec.Examples) == 0 {
+		t.Fatal("fixture has no examples")
+	}
+	if m.lib {
+		t.Fatal("examples alone shouldn't open the list")
+	}
+	if !strings.Contains(ansi.Strip(m.View()), "^X examples") {
+		t.Error("footer doesn't mention ^X")
+	}
+	m.Update(tea.KeyMsg{Type: tea.KeyCtrlX})
+	if !m.lib || m.libItems[m.libSel].kind != libExample {
+		t.Fatalf("^X: lib=%v sel=%d", m.lib, m.libSel)
+	}
+	v := ansi.Strip(m.View())
+	for _, want := range []string{"Examples from the manual", "Example from the manual", `find / \! -name "*.c" -print`} {
+		if !strings.Contains(v, want) {
+			t.Errorf("view lacks %q", want)
+		}
+	}
+	keys(m, "d") // can't delete an example
+	if !m.lib || !strings.Contains(m.status, "can't be deleted") {
+		t.Errorf("d: lib=%v status=%q", m.lib, m.status)
+	}
+	keys(m, "enter")
+	if m.lib || m.command() != `find / \! -name '*.c' -print` {
+		t.Errorf("loaded: lib=%v cmd=%q", m.lib, m.command())
+	}
+
+	// A manual without examples says so.
+	ls := newForm(t, "gnu-ls", "ls", 120, 30)
+	ls.Update(tea.KeyMsg{Type: tea.KeyCtrlX})
+	if ls.lib || !strings.Contains(ls.status, "no examples") {
+		t.Errorf("ls: lib=%v status=%q", ls.lib, ls.status)
+	}
+}
+
+func TestWarnsWhenReordered(t *testing.T) {
+	m := newForm(t, "gnu-ls", "ls -l", 120, 30)
+	if m.status != "" {
+		t.Errorf("plain line: status %q", m.status)
+	}
+	m = newForm(t, "gnu-ls", "ls /tmp -l", 120, 30)
+	if !strings.Contains(m.status, "changed the order") {
+		t.Errorf("reordered line: status %q", m.status)
+	}
+}

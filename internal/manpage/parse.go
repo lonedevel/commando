@@ -147,6 +147,7 @@ func Parse(command, text, source string) *Spec {
 	spec.Summary = summaryFrom(lines, source)
 	spec.Synopsis = synopsisFrom(lines, source)
 	spec.Args = parseArgs(spec.Synopsis, command)
+	spec.Examples = findExamples(lines, command, source)
 
 	p := &parser{lines: lines, spec: spec}
 	p.findOptions()

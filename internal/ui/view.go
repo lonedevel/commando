@@ -182,7 +182,7 @@ func (m *Model) viewForm() string {
 	}
 	var listBox string
 	if m.lib {
-		listBox = box(sHeader.Render("Presets & recent")+sDim.Render(" · "+m.spec.Command), m.libraryBody(listW-4, listH-2), listW, listH, cViolet)
+		listBox = box(sHeader.Render(m.libraryTitle())+sDim.Render(" · "+m.spec.Command), m.libraryBody(listW-4, listH-2), listW, listH, cViolet)
 	} else {
 		listBox = box(listTitle, m.listBody(listW-4, listH-2), listW, listH, cViolet)
 	}
@@ -237,6 +237,9 @@ func (m *Model) helpTitle() string {
 func (m *Model) footerKeys() string {
 	var pairs [][2]string
 	if m.lib {
+		if m.libItems[m.libSel].kind == libExample {
+			return keyHelp([][2]string{{"↑↓", "choose"}, {"⏎", "load"}, {"esc", "back to form"}})
+		}
 		return keyHelp([][2]string{{"↑↓", "choose"}, {"⏎", "load"}, {"d", "delete"}, {"esc", "back to form"}})
 	}
 	if m.filtering {
@@ -276,7 +279,11 @@ func (m *Model) footerKeys() string {
 		}
 	}
 	pairs = append(pairs, [2]string{"↑↓", "move"}, [2]string{"⏎", "run"}, [2]string{"^F", "filter"},
-		[2]string{"^O", "manual"}, [2]string{"^L", "presets"}, [2]string{"^T", "save preset"},
+		[2]string{"^O", "manual"})
+	if len(m.spec.Examples) > 0 {
+		pairs = append(pairs, [2]string{"^X", "examples"})
+	}
+	pairs = append(pairs, [2]string{"^L", "presets"}, [2]string{"^T", "save preset"},
 		[2]string{"^Y", "copy"}, [2]string{"^S", "long/short"}, [2]string{"esc", "quit"})
 	return keyHelp(pairs)
 }
@@ -506,12 +513,22 @@ func (m *Model) renderRow(k, labelW, nameW, widgetW, inner int) string {
 	return marker + ctrl + label + " " + widget + " " + names
 }
 
+var optGroupRe = regexp.MustCompile(`(?i)\[\s*\(?-[^\[\]]*\]|\[[^\[\]]*\b(?:flags|options)\]`)
+
 var hintRe = regexp.MustCompile(`^<?[A-Za-z][\w.-]*>?(\.\.\.)?$`)
 
 func argHint(s *manpage.Spec) string {
 	syn := strings.TrimSpace(strings.SplitN(s.Synopsis, "\n", 2)[0])
 	if len(syn) > 6 && strings.EqualFold(syn[:6], "usage:") {
 		syn = syn[6:]
+	}
+	// Leave out bracketed options ("[-o output]", "[build flags]").
+	for {
+		next := optGroupRe.ReplaceAllString(syn, " ")
+		if next == syn {
+			break
+		}
+		syn = next
 	}
 	fields := strings.Fields(strings.NewReplacer("[", "", "]", "").Replace(syn))
 	var hint []string
