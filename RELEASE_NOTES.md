@@ -1,5 +1,45 @@
 # Release notes
 
+## v0.7.0
+
+Commands that group other commands now open their own list, so `commando docker` → `container` → `ls` takes you to the right form.
+
+### New: nested command lists
+
+- Picking a command such as `docker container`, `docker image` or `kubectl config` opens a second list of its commands, instead of the tool's own form. The title shows where you are: `docker › container`.
+- Esc in a form returns to its list, and Esc in a list goes back up a level, with its filter and selection as you left them.
+- `commando docker container` starts at that level, and `commando docker container ls` opens the form directly.
+- Commands up to four words deep are recognized, whether they're documented by man pages (`docker-container-ls(1)` on Linux) or by `--help`.
+
+### Improved
+
+- Commands whose `--help` lists no options now try `tool help command`, so `go build`, `go test` and the rest of go's commands get real forms.
+- On systems with Docker's man pages, a nested page only counts as a sub-subcommand when its parent page mentions it, so `git remote-ext` and `git commit-tree` stay commands of git itself.
+
+### Fixes
+
+- commando no longer crashes in a terminal window only a few rows tall.
+- The argument hint no longer shows the command's own name when its usage line starts with "Usage:" (docker's commands).
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.7.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.6.0
 
 Opening a tool such as git, docker or cargo without naming a command now lists its commands first, so you can find the one you want before filling in its options.
