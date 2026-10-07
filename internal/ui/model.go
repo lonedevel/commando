@@ -88,13 +88,12 @@ type Model struct {
 	spin spinner.Model
 
 	// pick mode
-	pick       textinput.Model
-	pathCmds   []string
-	sugg       []string
-	suggSel    int
-	suggRecent bool // sugg holds recent command lines, not command names
-	pickErr    string
-	loadWhat   string
+	pick     textinput.Model
+	pathCmds []string
+	sugg     []pickItem
+	suggSel  int
+	pickErr  string
+	loadWhat string
 
 	// form mode
 	spec          *manpage.Spec

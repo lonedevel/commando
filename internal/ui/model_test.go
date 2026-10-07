@@ -744,3 +744,44 @@ func TestThemeSample(t *testing.T) {
 		}
 	}
 }
+
+func TestStartScreenSearch(t *testing.T) {
+	t.Setenv("COMMANDO_DATA_DIR", t.TempDir())
+	st := store.Load()
+	now := time.Now()
+	st.AddRecent("rsync", "rsync -avz photos/ nas:/photos", now.Add(-time.Hour))
+	st.AddRecent("tar", "tar -xzf release.tgz", now)
+	st.SavePreset("tar", "backup photos", "tar -czf photos.tgz photos", now)
+
+	m := New(Config{Store: st})
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.Update(pathCmdsMsg{"tar", "tac", "tail", "rsync"})
+	// Nothing typed: recent lines, newest first, the first one chosen.
+	if len(m.sugg) != 2 || m.sugg[0].text != "tar -xzf release.tgz" || m.suggSel != 0 {
+		t.Fatalf("recent = %+v sel %d", m.sugg, m.suggSel)
+	}
+	// Words search every saved line; names still complete.
+	keys(m, "t", "a")
+	var names, hist []string
+	for _, it := range m.sugg {
+		if it.history {
+			hist = append(hist, it.text)
+		} else {
+			names = append(names, it.text)
+		}
+	}
+	if !reflect.DeepEqual(names, []string{"tac", "tar", "tail"}) || len(hist) != 2 {
+		t.Errorf("ta: names %v history %v", names, hist)
+	}
+	keys(m, "esc")
+	keys(m, "p", "h", "o", "t", "o", "s")
+	v := ansi.Strip(m.View())
+	if !strings.Contains(v, "From your history") || !strings.Contains(v, "★ backup photos") || strings.Contains(v, "release.tgz") {
+		t.Errorf("photos:\n%s", v)
+	}
+	// Enter on a history line opens that line.
+	keys(m, "down", "enter")
+	if m.mode != modeLoading || m.cfg.Line != "tar -czf photos.tgz photos" {
+		t.Errorf("enter: mode %v line %q", m.mode, m.cfg.Line)
+	}
+}

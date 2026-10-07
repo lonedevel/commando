@@ -50,23 +50,44 @@ func (m *Model) viewPick() string {
 	lines = append(lines, sBold.Render("Which command would you like to run?"), "")
 	m.pick.Width = w - 8
 	lines = append(lines, m.pick.View())
-	if len(m.sugg) > 0 {
-		lines = append(lines, "")
-		if m.suggRecent {
-			lines = append(lines, sHeader.Render("Recent"))
+	lastHistory := -1 // 0 for command names, 1 for history: when the heading changes
+	for i, it := range m.sugg {
+		kind := 0
+		if it.history {
+			kind = 1
 		}
-		for i, s := range m.sugg {
-			if i == m.suggSel {
-				lines = append(lines, sCursor.Render("  ▸ ")+sCmd.Render(s))
-			} else {
-				lines = append(lines, "    "+sText.Render(s))
+		if kind != lastHistory {
+			lines = append(lines, "")
+			switch {
+			case !it.history:
+				lines = append(lines, sHeader.Render("Commands"))
+			case strings.TrimSpace(m.pick.Value()) == "":
+				lines = append(lines, sHeader.Render("Recent"))
+			default:
+				lines = append(lines, sHeader.Render("From your history"))
 			}
+			lastHistory = kind
+		}
+		text := it.text
+		if it.preset != "" {
+			text = "★ " + it.preset + "  " + text
+		}
+		text = fit(text, w-8)
+		if i == m.suggSel {
+			lines = append(lines, sCursor.Render("  ▸ ")+sCmd.Render(text))
+		} else {
+			lines = append(lines, "    "+sText.Render(text))
 		}
 	}
 	if m.pickErr != "" {
 		lines = append(lines, "", sErr.Render("✗ ")+sText.Render(m.pickErr))
 	}
-	lines = append(lines, "", keyHelp([][2]string{{"⏎", "open"}, {"tab", "complete"}, {"↑↓", "choose"}, {"esc", "quit"}}))
+	hint := "type a command, or words to search your history"
+	if m.cfg.Store == nil {
+		hint = "type a command"
+	}
+	lines = append(lines, "", sDim.Render(hint),
+		keyHelp([][2]string{{"⏎", "open"}, {"tab", "complete"}, {"↑↓", "choose"}, {"esc", "clear/quit"}}))
 	card := box(sDim.Render("start"), lines, w, len(lines)+2, cViolet)
 	return m.center(card)
 }
