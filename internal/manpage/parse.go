@@ -871,6 +871,7 @@ func (p *parser) finishOptions() {
 		if opts[i].TakesArg() {
 			p.valueDescs(&opts[i], p.blocks[i], byName)
 		}
+		opts[i].Examples = optionExamples(p.blocks[i], p.spec.Command)
 	}
 }
 

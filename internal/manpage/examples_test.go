@@ -150,3 +150,43 @@ func TestHasShellOperator(t *testing.T) {
 		}
 	}
 }
+
+func TestOptionExamples(t *testing.T) {
+	b, err := os.ReadFile("testdata/curl.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := Parse("curl", Clean(string(b)), "man")
+	o := optionNamed(t, s, "--connect-timeout")
+	want := []string{"curl --connect-timeout 20 https://example.com", "curl --connect-timeout 3.14 https://example.com"}
+	if !reflect.DeepEqual(o.Examples, want) {
+		t.Errorf("--connect-timeout examples = %q", o.Examples)
+	}
+	n := 0
+	for _, o := range s.Options {
+		if len(o.Examples) > 0 {
+			n++
+		}
+	}
+	if n < len(s.Options)*9/10 {
+		t.Errorf("only %d of %d curl options have examples", n, len(s.Options))
+	}
+
+	// Text after "Example:" that isn't this command isn't an example.
+	page := `OPTIONS
+       --foo  Do foo.
+
+              Example:
+               curl --foo https://example.com
+               wget --foo https://example.com
+
+       --bar  Do bar. For example: see --foo.
+`
+	s = Parse("curl", Clean(page), "man")
+	if got := optionNamed(t, s, "--foo").Examples; !reflect.DeepEqual(got, []string{"curl --foo https://example.com"}) {
+		t.Errorf("--foo = %q", got)
+	}
+	if got := optionNamed(t, s, "--bar").Examples; got != nil {
+		t.Errorf("--bar = %q", got)
+	}
+}

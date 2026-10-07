@@ -627,3 +627,29 @@ func TestApplyTheme(t *testing.T) {
 		t.Errorf("accent: option %v, text %v", cOption, cText)
 	}
 }
+
+func TestOptionExamplesUI(t *testing.T) {
+	m := newForm(t, "curl", "curl", 120, 30)
+	keys(m, "ctrl+f", "r", "e", "t", "r", "y", "enter")
+	r := m.curRow()
+	if r == nil || r.kind != rowOpt || m.spec.Options[r.opt].Names[0] != "--retry" {
+		t.Fatalf("not on --retry")
+	}
+	v := ansi.Strip(m.View())
+	if !strings.Contains(v, "Example") || !strings.Contains(v, "curl --retry 7 https://example.com") {
+		t.Errorf("help panel lacks the example:\n%s", v)
+	}
+	// ^X opens the list at this option's example, scrolled into view.
+	m.Update(tea.KeyMsg{Type: tea.KeyCtrlX})
+	it := m.libItems[m.libSel]
+	if !m.lib || it.kind != libExample || it.entry.Line != "curl --retry 7 https://example.com" {
+		t.Fatalf("^X selected %+v", it)
+	}
+	if !strings.Contains(ansi.Strip(m.View()), "❯ curl --retry 7") {
+		t.Errorf("selection not in view:\n%s", ansi.Strip(m.View()))
+	}
+	keys(m, "enter")
+	if m.command() != "curl --retry 7 https://example.com" {
+		t.Errorf("loaded %q", m.command())
+	}
+}

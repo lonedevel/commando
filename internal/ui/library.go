@@ -24,6 +24,7 @@ type libItem struct {
 	kind     libKind
 	entry    store.Entry
 	copyOnly bool // an example the form can't hold exactly; ⏎ copies it instead
+	opt      int  // for an example given under an option, its index; else -1
 }
 
 // loadLibrary rebuilds the presets, recent and examples list for the
@@ -46,13 +47,29 @@ func (m *Model) loadLibrary() int {
 		}
 		saved = len(presets) + len(recent)
 	}
-	for _, e := range m.spec.Examples {
-		words := cmdline.Split(e.Line)[len(strings.Fields(m.spec.Command)):]
+	seen := map[string]bool{}
+	addExample := func(line, desc string, opt int) {
+		if seen[line] || hasShellOperator(line) {
+			return
+		}
+		seen[line] = true
+		words := cmdline.Split(line)[len(strings.Fields(m.spec.Command)):]
 		m.libItems = append(m.libItems, libItem{
 			kind:     libExample,
-			entry:    store.Entry{Name: e.Desc, Line: e.Line},
+			entry:    store.Entry{Name: desc, Line: line},
 			copyOnly: !cmdline.Faithful(m.spec, words),
+			opt:      opt,
 		})
+	}
+	for _, e := range m.spec.Examples {
+		addExample(e.Line, e.Desc, -1)
+	}
+	// Examples given under each option ("Example: curl --retry 7 …").
+	for i := range m.spec.Options {
+		o := &m.spec.Options[i]
+		for _, line := range o.Examples {
+			addExample(line, o.Names[len(o.Names)-1]+": "+strings.TrimSuffix(o.Label, "."), i)
+		}
 	}
 	return saved
 }
@@ -73,19 +90,53 @@ func (m *Model) openLibrary() tea.Cmd {
 	return m.focusCurrent()
 }
 
-// openExamples shows the list at the manual's first example.
+// openExamples shows the list at the manual's first example, or at the
+// focused option's own example when it has one.
 func (m *Model) openExamples() tea.Cmd {
-	if len(m.spec.Examples) == 0 {
+	if !m.hasExamples() {
 		return m.setStatus("The manual for "+m.spec.Command+" has no examples", false)
 	}
+	opt := -1
+	if r := m.curRow(); r != nil && r.kind == rowOpt {
+		opt = r.opt
+	}
 	cmd := m.openLibrary()
+	first := -1
 	for i, it := range m.libItems {
-		if it.kind == libExample {
-			m.libSel = i
+		if it.kind != libExample {
+			continue
+		}
+		if first < 0 {
+			first = i
+		}
+		if opt >= 0 && it.opt == opt {
+			first = i
 			break
 		}
 	}
+	if first >= 0 {
+		m.libSel = first
+	}
 	return cmd
+}
+
+// hasExamples reports whether the manual gives any examples.
+func (m *Model) hasExamples() bool {
+	if len(m.spec.Examples) > 0 {
+		return true
+	}
+	for i := range m.spec.Options {
+		if len(m.spec.Options[i].Examples) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// hasShellOperator reports whether line pipes, chains or redirects, so the
+// form can't hold it.
+func hasShellOperator(line string) bool {
+	return len(splitLine(line)) > 1 || strings.ContainsAny(line, "<>`")
 }
 
 func (m *Model) closeLibrary() tea.Cmd {
@@ -221,16 +272,14 @@ func (m *Model) updateNaming(k tea.KeyMsg) tea.Cmd {
 
 // libraryBody renders the presets & recent list in place of the options.
 func (m *Model) libraryBody(inner, height int) []string {
-	lines := []string{sDim.Render("Start from a saved command, an example, or a blank form:"), ""}
-	rows := height - len(lines)
-	start := 0
-	if m.libSel >= rows {
-		start = m.libSel - rows + 1
-	}
+	head := []string{sDim.Render("Start from a saved command, an example, or a blank form:"), ""}
+	// Lay out every entry with its headings, then scroll to the selection.
+	var lines []string
+	selLine := 0
 	lastKind := libBlank
-	for i := start; i < len(m.libItems) && len(lines) < height; i++ {
+	for i := 0; i < len(m.libItems); i++ {
 		it := m.libItems[i]
-		if it.kind != lastKind && i > 0 && len(lines) < height-1 {
+		if it.kind != lastKind && i > 0 {
 			title := "Presets"
 			switch it.kind {
 			case libRecent:
@@ -242,6 +291,9 @@ func (m *Model) libraryBody(inner, height int) []string {
 		}
 		lastKind = it.kind
 		sel := i == m.libSel
+		if sel {
+			selLine = len(lines)
+		}
 		marker := "  "
 		if sel {
 			marker = sCursor.Render("❯ ")
@@ -273,7 +325,20 @@ func (m *Model) libraryBody(inner, height int) []string {
 		}
 		lines = append(lines, marker+fit(text, inner-2))
 	}
-	return lines
+	rows := height - len(head)
+	if rows <= 0 {
+		return head[:max(0, height)]
+	}
+	// Keep the selection in view, with its heading when there's room.
+	start := 0
+	if selLine >= rows {
+		start = selLine - rows + 1
+	}
+	if start > 0 && selLine-1 >= 0 && selLine-1 < start+rows-1 {
+		start = max(0, min(start, selLine-1))
+	}
+	end := min(len(lines), start+rows)
+	return append(head, lines[start:end]...)
 }
 
 // styledLine highlights a saved command line like the command preview.
