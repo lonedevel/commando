@@ -1,8 +1,9 @@
 name: Release
 
 # Publishes a GitHub release whenever main declares a version (in
-# cmd/commando/main.go) that has no tag yet. To release: bump the version,
-# add its section to RELEASE_NOTES.md, and merge to main.
+# cmd/commando/main.go) that has no tag yet, then opens a pull request that
+# points the Homebrew formula at it. To release: bump the version, add its
+# section to RELEASE_NOTES.md, merge to main, then merge the formula PR.
 on:
   push:
     branches: [main]
@@ -13,6 +14,8 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write # open the formula pull request
+  actions: write # start CI on it
 
 concurrency:
   group: release
@@ -64,3 +67,23 @@ jobs:
             --title "commando v$VERSION" \
             --notes-file notes.md \
             --latest
+
+      - name: Open the Homebrew formula pull request
+        if: steps.version.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          branch="formula-v$VERSION"
+          scripts/update-formula.sh "$VERSION" dist/checksums.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -am "Update the Homebrew formula to v$VERSION"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "Update the Homebrew formula to v$VERSION" \
+            --body "Points \`Formula/commando.rb\` at the v$VERSION release's prebuilt binaries, with the checksums it published. Opened by the Release workflow; merge it once the homebrew checks pass."
+          # Pushes and pull requests made with this workflow's token don't
+          # start other workflows, so start CI on the branch explicitly.
+          gh workflow run ci.yml --ref "$branch"

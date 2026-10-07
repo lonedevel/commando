@@ -8,25 +8,37 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/lonedevel/commando/internal/store"
 )
 
 const maxSuggestions = 8
 
+// pickItem is a suggestion on the start screen: a command name from
+// $PATH, or a saved line (a preset when preset is set).
+type pickItem struct {
+	text    string
+	history bool
+	preset  string
+}
+
 func (m *Model) updatePick(k tea.KeyMsg) tea.Cmd {
 	switch k.String() {
 	case "esc":
+		if m.pick.Value() != "" {
+			m.pick.SetValue("")
+			m.updateSuggestions()
+			return nil
+		}
 		m.result = Result{}
 		return tea.Quit
 	case "enter":
 		line := strings.TrimSpace(m.pick.Value())
-		if line == "" && m.suggRecent && m.suggSel >= 0 && m.suggSel < len(m.sugg) {
-			line = m.sugg[m.suggSel]
+		if it := m.pickSel(); it != nil && (it.history || !strings.Contains(line, " ")) {
+			line = it.text
 		}
 		if line == "" {
 			return nil
-		}
-		if m.suggSel >= 0 && m.suggSel < len(m.sugg) && !strings.Contains(line, " ") {
-			line = m.sugg[m.suggSel]
 		}
 		m.cfg.Line = line
 		m.mode = modeLoading
@@ -35,8 +47,16 @@ func (m *Model) updatePick(k tea.KeyMsg) tea.Cmd {
 		m.pick.Blur()
 		return tea.Batch(m.spin.Tick, m.load(line))
 	case "tab":
-		if len(m.sugg) > 0 {
-			m.pick.SetValue(m.sugg[max(0, m.suggSel)] + " ")
+		it := m.pickSel()
+		if it == nil && len(m.sugg) > 0 {
+			it = &m.sugg[0]
+		}
+		if it != nil {
+			text := it.text
+			if !it.history {
+				text += " "
+			}
+			m.pick.SetValue(text)
 			m.pick.CursorEnd()
 			m.updateSuggestions()
 		}
@@ -61,44 +81,65 @@ func (m *Model) updatePick(k tea.KeyMsg) tea.Cmd {
 	return cmd
 }
 
+// pickSel is the chosen suggestion, or nil.
+func (m *Model) pickSel() *pickItem {
+	if m.suggSel < 0 || m.suggSel >= len(m.sugg) {
+		return nil
+	}
+	return &m.sugg[m.suggSel]
+}
+
+// updateSuggestions lists command names starting with what's typed, and
+// the saved lines of every command that contain all of its words. With
+// nothing typed, it lists the most recent lines.
 func (m *Model) updateSuggestions() {
 	q := m.pick.Value()
 	m.sugg = nil
 	m.suggSel = -1
-	m.suggRecent = false
-	if q == "" && m.cfg.Store != nil {
-		// Nothing typed yet: offer recently run commands.
-		for _, e := range m.cfg.Store.AllRecent(maxSuggestions) {
-			m.sugg = append(m.sugg, e.Line)
+	var history []pickItem
+	if m.cfg.Store != nil {
+		var found []store.Entry
+		if strings.TrimSpace(q) == "" {
+			found = m.cfg.Store.AllRecent(maxSuggestions)
+		} else {
+			found = m.cfg.Store.Search(strings.Fields(q), maxSuggestions)
 		}
+		for _, e := range found {
+			history = append(history, pickItem{text: e.Line, history: true, preset: e.Name})
+		}
+	}
+	if strings.TrimSpace(q) == "" {
+		m.sugg = history
 		if len(m.sugg) > 0 {
-			m.suggRecent = true
-			m.suggSel = 0
+			m.suggSel = 0 // the latest command, ready to open again
 		}
 		return
 	}
-	if q == "" || strings.Contains(q, " ") {
-		return
-	}
-	var exact []string
-	var pre []string
-	for _, c := range m.pathCmds {
-		if c == q {
-			exact = append(exact, c)
-		} else if strings.HasPrefix(c, q) {
-			pre = append(pre, c)
+	if !strings.Contains(q, " ") {
+		var exact, pre []string
+		for _, c := range m.pathCmds {
+			if c == q {
+				exact = append(exact, c)
+			} else if strings.HasPrefix(c, q) {
+				pre = append(pre, c)
+			}
+		}
+		sort.Slice(pre, func(i, j int) bool {
+			if len(pre[i]) != len(pre[j]) {
+				return len(pre[i]) < len(pre[j])
+			}
+			return pre[i] < pre[j]
+		})
+		names := append(exact, pre...)
+		limit := maxSuggestions
+		if len(history) > 0 {
+			limit = 4 // leave room for the history
+		}
+		for _, c := range names[:min(len(names), limit)] {
+			m.sugg = append(m.sugg, pickItem{text: c})
 		}
 	}
-	sort.Slice(pre, func(i, j int) bool {
-		if len(pre[i]) != len(pre[j]) {
-			return len(pre[i]) < len(pre[j])
-		}
-		return pre[i] < pre[j]
-	})
-	m.sugg = append(exact, pre...)
-	if len(m.sugg) > maxSuggestions {
-		m.sugg = m.sugg[:maxSuggestions]
-	}
+	m.sugg = append(m.sugg, history...)
 }
 
 // complete performs filesystem completion on the input's last word.

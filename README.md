@@ -185,7 +185,9 @@ any presets you save:
   any time. Type to filter the list (`retry` finds curl's retry examples
   among hundreds); Delete or `^D` deletes the highlighted entry.
 - **Start from anywhere:** running `commando` with no command lists your most
-  recent commands across all tools.
+  recent commands across all tools. Type words to search everything you've
+  run and saved, such as `photos` or `rsync backup`, and press Enter to open
+  that line's form. Command names still complete as you type.
 
 They are stored in `~/Library/Application Support/commando/store.json` on
 macOS and `~/.config/commando/store.json` on Linux (set `COMMANDO_DATA_DIR`
@@ -307,9 +309,10 @@ version that isn't tagged yet:
 2. Add a `## v0.3.0` section at the top of `RELEASE_NOTES.md`.
 3. Merge to `main`. The workflow runs the tests, builds the archives, tags
    `v0.3.0` and publishes the release with those notes and files.
-4. Run `scripts/update-formula.sh 0.3.0` and merge the change. It rewrites
-   `Formula/commando.rb` to install that release's prebuilt binaries, using
-   the checksums the release published.
+4. The workflow then opens a pull request, `formula-v0.3.0`, that points
+   `Formula/commando.rb` at that release's prebuilt binaries with the
+   checksums it published, and starts CI on it. Merge it once the homebrew
+   checks pass. (`scripts/update-formula.sh 0.3.0` does the same by hand.)
 
 ## License
 

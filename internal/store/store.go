@@ -233,3 +233,46 @@ func (s *Store) Under(cmd string, n int) (presets, recent []Entry) {
 	}
 	return presets, recent
 }
+
+// Search returns the saved lines, presets and recent ones of every
+// command, that contain all of words (case-insensitive) in the line or the
+// preset's name: presets first, then recent lines newest first, at most n.
+// A line saved as both is listed once, as the preset.
+func (s *Store) Search(words []string, n int) []Entry {
+	match := func(e Entry) bool {
+		hay := strings.ToLower(e.Line + " " + e.Name)
+		for _, w := range words {
+			if !strings.Contains(hay, strings.ToLower(w)) {
+				return false
+			}
+		}
+		return true
+	}
+	var presets, recent []Entry
+	for _, c := range s.Commands {
+		for _, p := range c.Presets {
+			if match(p) {
+				presets = append(presets, p)
+			}
+		}
+		for _, r := range c.Recent {
+			if match(r) {
+				recent = append(recent, r)
+			}
+		}
+	}
+	sort.SliceStable(presets, func(i, j int) bool {
+		return strings.ToLower(presets[i].Name) < strings.ToLower(presets[j].Name)
+	})
+	sort.SliceStable(recent, func(i, j int) bool { return recent[i].Used.After(recent[j].Used) })
+	seen := map[string]bool{}
+	var out []Entry
+	for _, e := range append(presets, recent...) {
+		if seen[e.Line] || len(out) == n {
+			continue
+		}
+		seen[e.Line] = true
+		out = append(out, e)
+	}
+	return out
+}

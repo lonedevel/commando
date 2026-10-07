@@ -3,6 +3,7 @@ package store
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -95,5 +96,30 @@ func TestMax(t *testing.T) {
 	}
 	if _, r := s.For("ls"); len(r) != 3 || r[0].Line != "ls -f" {
 		t.Errorf("recent = %+v", r)
+	}
+}
+
+func TestSearch(t *testing.T) {
+	t.Setenv("COMMANDO_DATA_DIR", t.TempDir())
+	s := Load()
+	now := time.Now()
+	s.AddRecent("rsync", "rsync -av src/ host:/backup", now.Add(-2*time.Hour))
+	s.AddRecent("rsync", "rsync -avz photos/ nas:/photos", now.Add(-time.Hour))
+	s.AddRecent("tar", "tar -czf photos.tgz photos", now)
+	s.SavePreset("tar", "Backup Photos", "tar -czf photos.tgz photos", now)
+	var lines []string
+	for _, e := range s.Search([]string{"PHOTOS"}, 10) {
+		lines = append(lines, e.Name+"|"+e.Line)
+	}
+	want := []string{"Backup Photos|tar -czf photos.tgz photos", "|rsync -avz photos/ nas:/photos"}
+	if strings.Join(lines, ";") != strings.Join(want, ";") {
+		t.Errorf("Search = %q", lines)
+	}
+	// Every word must match; the preset's name counts.
+	if got := s.Search([]string{"backup", "tgz"}, 10); len(got) != 1 || got[0].Name != "Backup Photos" {
+		t.Errorf("two words = %+v", got)
+	}
+	if got := s.Search([]string{"rsync"}, 1); len(got) != 1 || got[0].Line != "rsync -avz photos/ nas:/photos" {
+		t.Errorf("limit = %+v", got)
 	}
 }

@@ -1,5 +1,38 @@
 # Release notes
 
+## v0.16.0
+
+Find anything you've run before, from the start screen.
+
+### New: search your history
+
+- Run `commando` with no command, then type. Besides command names, the start screen now searches every command line you've run or saved as a preset, for all commands. A line matches when it, or its preset's name, contains every word you typed: `photos`, `rsync backup`, `git log`.
+- Matches are listed under "From your history": presets first, then recent commands, newest first. Press Enter on one to open it in its form, ready to adjust and run.
+- With nothing typed, the start screen shows your most recent commands, as before. Esc clears what you've typed before quitting.
+
+### Behind the scenes
+
+- Each release now opens its own Homebrew formula pull request.
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.16.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.15.0
 
 See how each color theme looks in your own terminal before choosing one.
