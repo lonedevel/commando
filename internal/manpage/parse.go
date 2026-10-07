@@ -13,6 +13,7 @@ var (
 	pageMarkRe = regexp.MustCompile(`\(\d[\w]*\)\s*$`)
 	spacesRe   = regexp.MustCompile(`\s+`)
 	parenRe    = regexp.MustCompile(`\([^()]*\)`)
+	shortcutRe = regexp.MustCompile(`^--[\w-]+=[a-z0-9][\w.-]*$`)
 	optNameRe  = regexp.MustCompile(`^(?:--?[A-Za-z0-9#@%?][A-Za-z0-9_#@%?+.:-]*|-[,!])$`)
 	repeatRe   = regexp.MustCompile(`(?i)(multiple -\S+ options|(?:may|can) be (?:specified|given|used|repeated) (?:multiple|more than once|several|up to)|specif(?:y|ied) (?:it )?(?:multiple|more than once|several) times|repeated|each additional|more -\S+ options)`)
 )
@@ -261,6 +262,7 @@ func tagParts(tag string) []string {
 	var parts []string
 	depth := 0
 	start := 0
+	paired, commas := false, false
 	for i := 0; i < len(tag); i++ {
 		switch tag[i] {
 		case '[', '<', '{', '(':
@@ -276,15 +278,41 @@ func tagParts(tag string) []string {
 				if strings.HasPrefix(rest, "-") || strings.HasPrefix(rest, "+") {
 					parts = append(parts, strings.TrimSpace(tag[start:i]))
 					start = i + 1
+					commas = true
 				}
 			}
 		case ' ':
-			// "-b addr or --bind-address addr" (JDK pages)
-			if depth == 0 && strings.HasPrefix(tag[i:], " or -") && strings.TrimSpace(tag[start:i]) != "" {
-				parts = append(parts, strings.TrimSpace(tag[start:i]))
+			if i < start {
+				continue // inside " or "
+			}
+			cur := strings.TrimSpace(tag[start:i])
+			switch {
+			case depth > 0 || cur == "":
+			case strings.HasPrefix(tag[i:], " or -"):
+				// "-b addr or --bind-address addr" (JDK pages)
+				parts = append(parts, cur)
 				start = i + 4
+			case strings.HasPrefix(tag[i:], " --") && optNameRe.MatchString(cur) && !strings.HasPrefix(cur, "--"):
+				if shortcutRe.MatchString(strings.TrimSpace(tag[i:])) {
+					// "-c --order=cpu": a flag standing for that setting.
+					return []string{cur}
+				}
+				// "-a --all", "-D --directory=PATH" (systemd, binutils)
+				parts = append(parts, cur)
+				start = i + 1
+				paired = true
+			}
+		case '|':
+			// "--lint|--enable-checks"
+			if depth == 0 && strings.HasPrefix(tag[i+1:], "-") {
+				parts = append(parts, strings.TrimSpace(tag[start:i]))
+				start = i + 1
 			}
 		}
+	}
+	if paired && commas {
+		// "-1 --base, -2 --ours, -3 --theirs": several options, one entry.
+		return []string{""}
 	}
 	for k := range parts {
 		parts[k] = strings.TrimSpace(strings.TrimPrefix(parts[k], "or "))
@@ -299,6 +327,7 @@ type tagInfo struct {
 	arg      string
 	optional bool
 	longEq   bool
+	argOf    string // the name the argument was given with
 }
 
 // parseTag parses an option tag such as "-w, --width=COLS",
@@ -309,7 +338,9 @@ func parseTag(tag string) (tagInfo, bool) {
 	if !strings.HasPrefix(tag, "-") || len(tag) < 2 || utf8.RuneCountInString(tag) > 80 {
 		return ti, false
 	}
-	for _, part := range tagParts(tag) {
+	parts := tagParts(tag)
+	shortcut := len(parts) == 1 && parts[0] != tag // "-EB --endian=big"
+	for _, part := range parts {
 		if part == "" {
 			return ti, false
 		}
@@ -345,14 +376,11 @@ func parseTag(tag string) (tagInfo, bool) {
 			arg = arg[1 : len(arg)-1]
 		}
 		arg = strings.TrimSpace(arg)
-		// "dir ...", "name...": the option takes one or more of them.
-		if a := strings.TrimSpace(strings.TrimSuffix(arg, "...")); a != arg && a != "" {
-			arg = strings.TrimSpace(strings.TrimRight(a, ",:;"))
-		}
+		arg = trimEllipsis(arg)
 		if strings.HasPrefix(arg, "<") && strings.HasSuffix(arg, ">") {
-			arg = arg[1 : len(arg)-1]
+			arg = trimEllipsis(arg[1 : len(arg)-1])
 		}
-		if !strings.HasPrefix(name, "--") && len(name) > 2 && isUpperWord(name[1:]) && arg == "" {
+		if !strings.HasPrefix(name, "--") && len(name) > 2 && isUpperWord(name[1:]) && arg == "" && !shortcut {
 			continue // "-NUM" style pseudo options
 		}
 		if arg != "" && !plausibleArg(arg) {
@@ -360,7 +388,7 @@ func parseTag(tag string) (tagInfo, bool) {
 		}
 		ti.names = append(ti.names, name)
 		if arg != "" && ti.arg == "" {
-			ti.arg = arg
+			ti.arg, ti.argOf = arg, name
 		}
 		if optional {
 			ti.optional = true
@@ -372,6 +400,39 @@ func parseTag(tag string) (tagInfo, bool) {
 	return ti, len(ti.names) > 0
 }
 
+// splitEntry reads a tag naming several options, each a short and a long
+// name ("-1 --base, -2 --ours, -3 --theirs, -0"), or returns nil.
+func splitEntry(tag string) []tagInfo {
+	groups := strings.Split(tag, ", ")
+	if len(groups) < 2 {
+		return nil
+	}
+	var out []tagInfo
+	paired := false
+	for _, g := range groups {
+		ti, ok := parseTag(g)
+		if !ok || len(ti.names) > 2 {
+			return nil
+		}
+		paired = paired || len(ti.names) == 2
+		out = append(out, ti)
+	}
+	if !paired {
+		return nil
+	}
+	return out
+}
+
+// trimEllipsis drops a trailing "..." from an argument ("dir ...",
+// "<ID,...>": the option takes one or more of them), and the separator
+// before it.
+func trimEllipsis(arg string) string {
+	if a := strings.TrimSpace(strings.TrimSuffix(arg, "...")); a != arg && a != "" {
+		return strings.TrimSpace(strings.TrimRight(a, ",:;"))
+	}
+	return arg
+}
+
 // mergeTags joins the names of stacked tag lines into one option.
 func mergeTags(a, b tagInfo) tagInfo {
 	for _, n := range b.names {
@@ -380,7 +441,7 @@ func mergeTags(a, b tagInfo) tagInfo {
 		}
 	}
 	if a.arg == "" {
-		a.arg = b.arg
+		a.arg, a.argOf = b.arg, b.argOf
 	}
 	a.optional = a.optional || b.optional
 	a.longEq = a.longEq || b.longEq
@@ -421,15 +482,37 @@ func plausibleArg(arg string) bool {
 	return !strings.HasSuffix(arg, ".")
 }
 
+// tagEnd is where a tag ends and its same-line description starts: at the
+// first run of spaces, except one after a comma that leads to the next name
+// ("-T,  --timeout=SECONDS   set all timeouts", wget).
+func tagEnd(s string) int {
+	from := 0
+	for {
+		i := strings.Index(s[from:], "  ")
+		if i < 0 {
+			return -1
+		}
+		i += from
+		if i > 0 && s[i-1] == ',' && strings.HasPrefix(strings.TrimLeft(s[i:], " "), "-") {
+			from = i + 2
+			continue
+		}
+		return i
+	}
+}
+
 // splitInline splits a tag line into tag and same-line description.
 func splitInline(l line, delta int) (tag, rest string, col int) {
 	rs := []rune(l.raw)
 	c := l.ind + delta
 	exact := delta > 0 && len(rs) > c && rs[c-1] == ' ' && rs[c] != ' '
 	if exact && rs[c-2] == ' ' {
-		return strings.TrimSpace(string(rs[:c])), strings.TrimSpace(string(rs[c:])), c
+		tag, rest := strings.TrimSpace(string(rs[:c])), strings.TrimSpace(string(rs[c:]))
+		if !strings.HasSuffix(tag, ",") || !strings.HasPrefix(rest, "-") { // not "-T,  --timeout"
+			return tag, rest, c
+		}
 	}
-	if i := strings.Index(l.s, "  "); i > 0 {
+	if i := tagEnd(l.s); i > 0 {
 		if _, ok := parseTag(l.s[:i]); ok {
 			r := strings.TrimLeft(l.s[i:], " ")
 			return l.s[:i], r, l.ind + utf8.RuneCountInString(l.s[:len(l.s)-len(r)])
@@ -528,8 +611,13 @@ func (p *parser) findOptions() {
 			}
 		}
 		ti, ok := parseTag(tag)
+		tis := []tagInfo{ti}
 		if !ok {
-			continue
+			// "-1 --base, -2 --ours, -3 --theirs": several options sharing
+			// one description.
+			if tis = splitEntry(tag); tis == nil {
+				continue
+			}
 		}
 		if rest == "" {
 			if j < 0 || ls[j].ind <= l.ind {
@@ -543,7 +631,9 @@ func (p *parser) findOptions() {
 				continue
 			}
 		}
-		cands = append(cands, cand{idx: i, last: i, tag: ti, rest: rest, col: col})
+		for _, ti := range tis {
+			cands = append(cands, cand{idx: i, last: i, tag: ti, rest: rest, col: col})
+		}
 		if indents[l.sect] == nil {
 			indents[l.sect] = map[int]int{}
 		}
@@ -557,13 +647,18 @@ func (p *parser) findOptions() {
 	}
 	kept := cands[:0]
 	for _, c := range cands {
-		if ls[c.idx].ind <= limit[ls[c.idx].sect] {
+		lim := limit[ls[c.idx].sect]
+		if strings.HasPrefix(ls[c.idx].s, "--") {
+			lim += 4 // long-only names lined up under "-x, --long" (wget)
+		}
+		if ls[c.idx].ind <= lim {
 			kept = append(kept, c)
 		}
 	}
 	cands = kept
 
 	seen := map[string]bool{}
+	optOf := map[string]int{} // option index by name
 	isStart := map[int]bool{}
 	for _, c := range cands {
 		isStart[c.idx] = true
@@ -583,17 +678,44 @@ func (p *parser) findOptions() {
 		p.optLines = append(p.optLines, c.idx)
 		p.optEnd = append(p.optEnd, end)
 
-		dup := false
+		// An option documented twice keeps its first entry; names already
+		// taken ("-e --echo" before "--echo=MODE") leave the rest.
+		var fresh []string
 		for _, n := range c.tag.names {
-			if seen[n] {
-				dup = true
+			if !seen[n] {
+				fresh = append(fresh, n)
 			}
 		}
-		if dup {
+		if len(fresh) == 0 {
 			continue
 		}
+		if len(fresh) < len(c.tag.names) {
+			k := -1
+			for _, n := range c.tag.names {
+				if seen[n] {
+					k = optOf[n]
+					break
+				}
+			}
+			o := &p.spec.Options[k]
+			switch {
+			case c.tag.arg == "" || strings.EqualFold(o.Arg, c.tag.arg):
+				// More names for an option already read ("--existing,
+				// --ignore-non-existing" after "--existing").
+				o.Names = append(o.Names, fresh...)
+				for _, n := range fresh {
+					seen[n], optOf[n] = true, k
+				}
+				continue
+			case c.tag.argOf != "" && indexOfString(fresh, c.tag.argOf) < 0:
+				// "-p, --indicator-style=slash" after --indicator-style=WORD:
+				// -p is a flag for that one value.
+				c.tag.arg, c.tag.optional, c.tag.longEq = "", false, false
+			}
+		}
+		c.tag.names = fresh
 		for _, n := range c.tag.names {
-			seen[n] = true
+			seen[n], optOf[n] = true, len(p.spec.Options)
 		}
 		desc := joinParagraphs(c.rest, ls[c.last+1:end])
 		if p.blocks == nil {

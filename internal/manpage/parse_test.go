@@ -296,6 +296,11 @@ func TestParseTag(t *testing.T) {
 		{"-sourcepath dir1:dir2:...", []string{"-sourcepath"}, "dir1:dir2", false, true},
 		{"--verbose...", []string{"--verbose"}, "", false, true},
 		{"-x ...", nil, "", false, false},
+		{"-a --all", []string{"-a", "--all"}, "", false, true},
+		{"-D --directory=PATH", []string{"-D", "--directory"}, "PATH", false, true},
+		{"-c --order=cpu", []string{"-c"}, "", false, true},
+		{"-L --lint|--enable-checks", []string{"-L", "--lint", "--enable-checks"}, "", false, true},
+		{"-u, --euid <ID,...>", []string{"-u", "--euid"}, "ID", false, true},
 		{"--class-path path, -classpath path, or -cp path", []string{"--class-path", "-classpath", "-cp"}, "path", false, true},
 		{"-b addr or --bind-address addr", []string{"-b", "--bind-address"}, "addr", false, true},
 		{"--no-option. That is", nil, "", false, false},
@@ -437,6 +442,20 @@ func TestParseArgs(t *testing.T) {
 	s := Parse("ls", Clean(string(b)), "man")
 	if len(s.Args) != 1 || s.Args[0].Name != "file" || s.Args[0].Required || !s.Args[0].Repeat {
 		t.Errorf("BSD ls args = %+v", s.Args)
+	}
+}
+
+func TestSplitEntry(t *testing.T) {
+	var got [][]string
+	for _, ti := range splitEntry("-1 --base, -2 --ours, -3 --theirs, -0") {
+		got = append(got, ti.names)
+	}
+	want := [][]string{{"-1", "--base"}, {"-2", "--ours"}, {"-3", "--theirs"}, {"-0"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("splitEntry = %v", got)
+	}
+	if splitEntry("-a, -b") != nil {
+		t.Error("splitEntry(-a, -b) should be one option's names")
 	}
 }
 
