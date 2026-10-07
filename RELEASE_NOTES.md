@@ -1,5 +1,40 @@
 # Release notes
 
+## v0.13.0
+
+Pick a color scheme to match your terminal.
+
+### New: named themes
+
+- `theme` in the settings file can now name a color scheme: `dracula`, `nord`, `tokyo-night`, `catppuccin-mocha`, `catppuccin-latte`, `gruvbox-dark`, `gruvbox-light`, `solarized-dark` or `solarized-light`.
+- Each theme uses its scheme's official colors for every part of the form, including the logo. They're meant for a terminal set to the same scheme: commando colors the text, not the window background.
+- `[colors]` still overrides any single color on top of a theme, and `auto`, `dark`, `light` and `contrast` work as before.
+- The README shows the same form in each theme side by side.
+
+```toml
+# ~/.config/commando/config.toml  (commando --config creates it)
+theme = "dracula"
+```
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.13.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.12.0
 
 Examples now appear under the options they belong to.
