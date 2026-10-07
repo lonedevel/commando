@@ -1,5 +1,34 @@
 # Release notes
 
+## v0.18.0
+
+Tidy your history from the start screen.
+
+### New: delete from the start screen
+
+- Run `commando` with no command, choose a saved line or preset with ↑↓ (or find it by typing), and press `^D` to delete it. It's removed from whichever command it was saved under, such as `git log` or `tar`.
+- Changed your mind? `^Z` puts it back, in its old place.
+- The key hint shows `^D delete` whenever a saved line is chosen.
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.18.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.17.0
 
 A new look for the README, with a recording of commando in use.

@@ -123,3 +123,30 @@ func TestSearch(t *testing.T) {
 		t.Errorf("limit = %+v", got)
 	}
 }
+
+func TestRestore(t *testing.T) {
+	s := &Store{Commands: map[string]*Command{}}
+	now := time.Now()
+	s.AddRecent("ls", "ls -l", now.Add(-2*time.Hour))
+	s.AddRecent("ls", "ls -a", now.Add(-time.Hour))
+	s.AddRecent("ls", "ls -la", now)
+	s.SavePreset("ls", "long", "ls -l", now)
+
+	gone := s.Search([]string{"ls -a"}, 5)
+	if len(gone) != 1 || gone[0].Cmd != "ls" {
+		t.Fatalf("search = %+v", gone)
+	}
+	s.DeleteRecent("ls", "ls -a")
+	s.DeletePreset("ls", "long")
+	s.Restore("ls", Entry{Line: "ls -a", Used: now.Add(-time.Hour)})
+	s.Restore("ls", Entry{Name: "long", Line: "ls -l", Used: now})
+	s.Restore("ls", Entry{Line: "ls -la", Used: now}) // already there
+	presets, recent := s.For("ls")
+	var lines []string
+	for _, e := range recent {
+		lines = append(lines, e.Line)
+	}
+	if len(presets) != 1 || presets[0].Name != "long" || strings.Join(lines, ",") != "ls -la,ls -a,ls -l" {
+		t.Errorf("presets %v recent %v", presets, lines)
+	}
+}

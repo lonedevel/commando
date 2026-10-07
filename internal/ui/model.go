@@ -93,6 +93,7 @@ type Model struct {
 	sugg     []pickItem
 	suggSel  int
 	pickErr  string
+	pickUndo *store.Entry // the start screen's last deleted line, for ^Z
 	loadWhat string
 
 	// form mode

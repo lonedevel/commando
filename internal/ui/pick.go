@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -20,6 +21,8 @@ type pickItem struct {
 	text    string
 	history bool
 	preset  string
+	cmd     string // the command a saved line is stored under
+	used    time.Time
 }
 
 func (m *Model) updatePick(k tea.KeyMsg) tea.Cmd {
@@ -61,6 +64,12 @@ func (m *Model) updatePick(k tea.KeyMsg) tea.Cmd {
 			m.updateSuggestions()
 		}
 		return nil
+	case "ctrl+d":
+		if it := m.pickSel(); it != nil && it.history {
+			return m.deletePickItem(*it)
+		}
+	case "ctrl+z":
+		return m.undoPickDelete()
 	case "down", "ctrl+n":
 		if len(m.sugg) > 0 {
 			m.suggSel = (m.suggSel + 1) % len(m.sugg)
@@ -105,7 +114,7 @@ func (m *Model) updateSuggestions() {
 			found = m.cfg.Store.Search(strings.Fields(q), maxSuggestions)
 		}
 		for _, e := range found {
-			history = append(history, pickItem{text: e.Line, history: true, preset: e.Name})
+			history = append(history, pickItem{text: e.Line, history: true, preset: e.Name, cmd: e.Cmd, used: e.Used})
 		}
 	}
 	if strings.TrimSpace(q) == "" {
@@ -140,6 +149,50 @@ func (m *Model) updateSuggestions() {
 		}
 	}
 	m.sugg = append(m.sugg, history...)
+}
+
+// deletePickItem removes a saved line, or a preset, from the history; ^Z
+// puts it back.
+func (m *Model) deletePickItem(it pickItem) tea.Cmd {
+	st := m.cfg.Store
+	if it.preset != "" {
+		st.DeletePreset(it.cmd, it.preset)
+	} else {
+		st.DeleteRecent(it.cmd, it.text)
+	}
+	m.pickUndo = &store.Entry{Name: it.preset, Line: it.text, Used: it.used, Cmd: it.cmd}
+	sel := m.suggSel
+	m.updateSuggestions()
+	m.suggSel = min(sel, len(m.sugg)-1)
+	what := "Deleted"
+	if it.preset != "" {
+		what = "Deleted preset “" + it.preset + "”"
+	}
+	if err := st.Save(); err != nil {
+		return m.setStatus("Could not save: "+err.Error(), true)
+	}
+	return m.setStatus(what+" · ^Z to undo", false)
+}
+
+// undoPickDelete restores the line deletePickItem last removed.
+func (m *Model) undoPickDelete() tea.Cmd {
+	e := m.pickUndo
+	if e == nil {
+		return nil
+	}
+	m.pickUndo = nil
+	m.cfg.Store.Restore(e.Cmd, *e)
+	m.updateSuggestions()
+	for i, it := range m.sugg {
+		if it.history && it.text == e.Line {
+			m.suggSel = i
+			break
+		}
+	}
+	if err := m.cfg.Store.Save(); err != nil {
+		return m.setStatus("Could not save: "+err.Error(), true)
+	}
+	return m.setStatus("Restored", false)
 }
 
 // complete performs filesystem completion on the input's last word.
