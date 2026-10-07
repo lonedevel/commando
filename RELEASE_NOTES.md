@@ -1,5 +1,43 @@
 # Release notes
 
+## v0.20.0
+
+Hundreds more option names read from manuals, notably for PostgreSQL and Java tools.
+
+### Improved
+
+- Some manuals list each name of an option on its own line, as PostgreSQL's do:
+
+  ```
+  -U username
+  --username=username
+      User name to connect as.
+  ```
+
+  Only the last name was read, so short names such as psql's `-c` and pg_dump's `-U`, `-F` and `-f` were unknown. `--explain` called them "not in the manual", and a command line using them couldn't fill in the form. All the names are now read.
+- Names joined by "or", as in the Java tools' manuals (`-b addr or --bind-address addr`, `--class-path path, -classpath path, or -cp path`), are now read as one option. jwebserver goes from 1 option to 6, javac from 46 to 54.
+- Across the 334 manuals tested, commando now knows 656 more option names and 49 more options than in v0.19.0, and none are lost.
+- Manuals are read again the first time you open them after upgrading.
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.20.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.19.1
 
 More options read from manuals.

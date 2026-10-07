@@ -272,14 +272,25 @@ func tagParts(tag string) []string {
 		case ',':
 			if depth == 0 {
 				rest := strings.TrimLeft(tag[i+1:], " ")
+				rest = strings.TrimPrefix(rest, "or ") // "-a x, -b x, or -c x"
 				if strings.HasPrefix(rest, "-") || strings.HasPrefix(rest, "+") {
 					parts = append(parts, strings.TrimSpace(tag[start:i]))
 					start = i + 1
 				}
 			}
+		case ' ':
+			// "-b addr or --bind-address addr" (JDK pages)
+			if depth == 0 && strings.HasPrefix(tag[i:], " or -") && strings.TrimSpace(tag[start:i]) != "" {
+				parts = append(parts, strings.TrimSpace(tag[start:i]))
+				start = i + 4
+			}
 		}
 	}
-	return append(parts, strings.TrimSpace(tag[start:]))
+	for k := range parts {
+		parts[k] = strings.TrimSpace(strings.TrimPrefix(parts[k], "or "))
+	}
+	last := strings.TrimSpace(tag[start:])
+	return append(parts, strings.TrimSpace(strings.TrimPrefix(last, "or ")))
 }
 
 type tagInfo struct {
@@ -361,6 +372,22 @@ func parseTag(tag string) (tagInfo, bool) {
 	return ti, len(ti.names) > 0
 }
 
+// mergeTags joins the names of stacked tag lines into one option.
+func mergeTags(a, b tagInfo) tagInfo {
+	for _, n := range b.names {
+		if indexOfString(a.names, n) < 0 {
+			a.names = append(a.names, n)
+		}
+	}
+	if a.arg == "" {
+		a.arg = b.arg
+	}
+	a.optional = a.optional || b.optional
+	a.longEq = a.longEq || b.longEq
+	a.repeat = a.repeat || b.repeat
+	return a
+}
+
 func isUpperWord(s string) bool {
 	for _, r := range s {
 		if !unicode.IsUpper(r) && r != '_' {
@@ -419,6 +446,7 @@ func splitInline(l line, delta int) (tag, rest string, col int) {
 
 type cand struct {
 	idx  int
+	last int // the last of its tag lines: names can be stacked one per line
 	tag  tagInfo
 	rest string
 	col  int
@@ -455,11 +483,43 @@ func (p *parser) findOptions() {
 
 	var cands []cand
 	indents := map[string]map[int]int{}
+	skipTo := -1
 	for i, l := range ls {
-		if l.ind < 0 || l.blank() || !strings.HasPrefix(l.s, "-") || skipSections[l.sect] {
+		if i <= skipTo || l.ind < 0 || l.blank() || !strings.HasPrefix(l.s, "-") || skipSections[l.sect] {
 			continue
 		}
-		j := p.nextNonBlank(i)
+		last := i
+		var stacked tagInfo
+		if ti, ok := parseTag(l.s); ok {
+			// "-a" over "--echo-all" over the description (DocBook pages:
+			// PostgreSQL, git): one option, named on each line.
+			stacked = ti
+			for k := i + 1; k < len(ls) && k-i < 6; k++ {
+				n := ls[k]
+				if n.ind != l.ind || !strings.HasPrefix(n.s, "-") || strings.Contains(n.s, "  ") {
+					break
+				}
+				nt, ok := parseTag(n.s)
+				if !ok {
+					break
+				}
+				stacked = mergeTags(stacked, nt)
+				last = k
+			}
+		}
+		j := p.nextNonBlank(last)
+		if last > i {
+			if j < 0 || ls[j].ind <= l.ind {
+				continue
+			}
+			skipTo = last
+			cands = append(cands, cand{idx: i, last: last, tag: stacked})
+			if indents[l.sect] == nil {
+				indents[l.sect] = map[int]int{}
+			}
+			indents[l.sect][l.ind]++
+			continue
+		}
 		tag, rest, col := splitInline(l, delta)
 		if j > 0 && ls[j].ind > l.ind && rest != "" && !strings.Contains(l.s, "  ") {
 			// "-Bnewer file" with the description on the following lines.
@@ -483,7 +543,7 @@ func (p *parser) findOptions() {
 				continue
 			}
 		}
-		cands = append(cands, cand{idx: i, tag: ti, rest: rest, col: col})
+		cands = append(cands, cand{idx: i, last: i, tag: ti, rest: rest, col: col})
 		if indents[l.sect] == nil {
 			indents[l.sect] = map[int]int{}
 		}
@@ -512,7 +572,7 @@ func (p *parser) findOptions() {
 		l := ls[c.idx]
 		// Description block: until the next tag, or a non-blank line that is
 		// not indented deeper than the tag.
-		end := c.idx + 1
+		end := c.last + 1
 		for end < len(ls) {
 			n := ls[end]
 			if n.ind < 0 || isStart[end] || (!n.blank() && n.ind <= l.ind) {
@@ -535,11 +595,11 @@ func (p *parser) findOptions() {
 		for _, n := range c.tag.names {
 			seen[n] = true
 		}
-		desc := joinParagraphs(c.rest, ls[c.idx+1:end])
+		desc := joinParagraphs(c.rest, ls[c.last+1:end])
 		if p.blocks == nil {
 			p.blocks = map[int][]line{}
 		}
-		p.blocks[len(p.spec.Options)] = ls[c.idx+1 : end]
+		p.blocks[len(p.spec.Options)] = ls[c.last+1 : end]
 		section := l.sub
 		if section == "" {
 			section = titleCase(l.sect)
