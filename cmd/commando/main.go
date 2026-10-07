@@ -29,7 +29,7 @@ import (
 	"github.com/lonedevel/commando/internal/ui"
 )
 
-var version = "0.19.0"
+var version = "0.19.1"
 
 const usage = `commando — a friendly front-end for Unix command options
 
