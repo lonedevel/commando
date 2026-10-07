@@ -158,6 +158,19 @@ or from a checkout:
 make install        # go install ./cmd/commando
 ```
 
+Homebrew also installs the manual (`man commando`) and tab completions for
+zsh, bash and fish. The release archives include the manual as
+`commando.1`; otherwise add completions yourself:
+
+```sh
+source <(commando --completion zsh)    # ~/.zshrc, after compinit
+source <(commando --completion bash)   # ~/.bashrc
+commando --completion fish | source    # ~/.config/fish/config.fish
+```
+
+Completion covers commando's flags and theme names, then the command you
+name and its own arguments, as if commando weren't in front.
+
 ## Usage
 
 ```sh
@@ -168,6 +181,7 @@ commando grep -rn TODO   # start from an existing command line
 commando -p tar          # print the command instead of running it
 commando --long rsync    # prefer --long option names
 commando --explain 'rsync -av --delete src/ host:/backup'
+man commando             # everything below, in brief
 ```
 
 When you press Enter, commando prints the final command and runs it with

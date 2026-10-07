@@ -1,6 +1,7 @@
 .PHONY: build test install lint clean dist
 
 VERSION ?= $(shell scripts/version.sh)
+DATE := $(shell date -u +%Y-%m-%d)
 PLATFORMS := darwin/arm64 darwin/amd64 linux/amd64 linux/arm64
 
 build:
@@ -26,6 +27,7 @@ dist:
 		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -trimpath \
 			-ldflags "-s -w -X main.version=$(VERSION)" -o dist/$$name/commando ./cmd/commando && \
 		cp LICENSE README.md dist/$$name/ && \
+		sed '1s/.*/.TH COMMANDO 1 $(DATE) "commando $(VERSION)" "User Commands"/' docs/commando.1 > dist/$$name/commando.1 && \
 		tar -C dist -czf dist/$$name.tar.gz $$name && rm -rf dist/$$name || exit 1; \
 	done
 	cd dist && (command -v sha256sum >/dev/null && sha256sum *.tar.gz || shasum -a 256 *.tar.gz) > checksums.txt
