@@ -121,8 +121,10 @@ type Model struct {
 
 	// presets & recent (shown in place of the option list)
 	lib        bool
-	libItems   []libItem
+	libItems   []libItem // the entries shown, after the filter
+	libAll     []libItem // every entry
 	libSel     int
+	libFilter  textinput.Model
 	naming     bool     // typing a name for a new preset
 	confirming []string // risky options awaiting "run anyway?" confirmation
 	presetIn   textinput.Model
@@ -169,6 +171,7 @@ func New(cfg Config) *Model {
 	m.presetIn = newInput("e.g. long listing with sizes")
 	m.presetIn.Prompt = ""
 	m.subFilter = newInput("type a command name or what it does")
+	m.libFilter = newInput("type to filter")
 	m.manSearch = newInput("search manual")
 	m.manSearch.Prompt = "/"
 
@@ -367,6 +370,7 @@ func (m *Model) onLoaded(msg loadedMsg) tea.Cmd {
 		note = m.setStatus("The form changed the order of what you typed (or dropped a repeat). Check the command below before running it.", true)
 	}
 	// Offer saved presets and recent commands when starting from scratch.
+	m.libFilter.SetValue("")
 	if len(msg.rest) == 0 && m.loadLibrary() > 0 {
 		m.lib = true
 		m.libSel = 1 // the first preset (or latest command); Blank form is one ↑ away
@@ -697,7 +701,11 @@ func (m *Model) textInputFor(r *row) *textinput.Model {
 
 func (m *Model) focusCurrent() tea.Cmd {
 	m.blurInputs()
-	if m.lib || m.naming {
+	if m.lib {
+		m.filter.Blur()
+		return m.libFilter.Focus()
+	}
+	if m.naming {
 		m.filter.Blur()
 		return nil
 	}
@@ -1235,6 +1243,11 @@ func (m *Model) forwardToFocused(msg tea.Msg) tea.Cmd {
 		m.subFilter, cmd = m.subFilter.Update(msg)
 		return cmd
 	case modeForm:
+		if m.lib {
+			var cmd tea.Cmd
+			m.libFilter, cmd = m.libFilter.Update(msg)
+			return cmd
+		}
 		if m.naming {
 			var cmd tea.Cmd
 			m.presetIn, cmd = m.presetIn.Update(msg)

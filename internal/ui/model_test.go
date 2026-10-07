@@ -207,7 +207,7 @@ func TestPresetsAndRecent(t *testing.T) {
 	if !m.lib || m.libItems[m.libSel].kind != libPreset {
 		t.Fatalf("^L: lib=%v sel=%d", m.lib, m.libSel)
 	}
-	keys(m, "d")
+	m.Update(tea.KeyMsg{Type: tea.KeyCtrlD})
 	if presets, _ := store.Load().For("ls"); len(presets) != 0 {
 		t.Errorf("preset not deleted: %+v", presets)
 	}
@@ -560,7 +560,7 @@ func TestExamples(t *testing.T) {
 			t.Errorf("view lacks %q", want)
 		}
 	}
-	keys(m, "d") // can't delete an example
+	m.Update(tea.KeyMsg{Type: tea.KeyCtrlD}) // can't delete an example
 	if !m.lib || !strings.Contains(m.status, "can't be deleted") {
 		t.Errorf("d: lib=%v status=%q", m.lib, m.status)
 	}
@@ -684,5 +684,45 @@ func TestNamedThemes(t *testing.T) {
 	ApplyTheme(lipgloss.DefaultRenderer(), "auto", nil)
 	if gradFrom != [3]int{0xF4, 0x72, 0xB6} {
 		t.Errorf("auto didn't restore the logo: %v", gradFrom)
+	}
+}
+
+func TestLibraryFilter(t *testing.T) {
+	m := newForm(t, "curl", "curl", 120, 30)
+	m.Update(tea.KeyMsg{Type: tea.KeyCtrlX})
+	all := len(m.libItems)
+	if all < 200 {
+		t.Fatalf("only %d entries", all)
+	}
+	keys(m, "r", "e", "t", "r", "y")
+	if len(m.libItems) == 0 || len(m.libItems) > 10 {
+		t.Fatalf("filtered to %d entries", len(m.libItems))
+	}
+	for _, it := range m.libItems {
+		if !strings.Contains(it.entry.Line+it.entry.Name, "retry") {
+			t.Errorf("kept %q", it.entry.Line)
+		}
+	}
+	v := ansi.Strip(m.View())
+	if !strings.Contains(v, "of "+itoa(all-1)) || !strings.Contains(v, "clear filter") {
+		t.Errorf("title or footer doesn't show the filter:\n%s", v)
+	}
+	// Two words narrow further; no match shows a note instead of crashing.
+	keys(m, " ", "m", "a", "x")
+	if len(m.libItems) != 1 || !strings.Contains(m.libItems[0].entry.Line, "--retry-max-time") {
+		t.Errorf("retry max = %+v", m.libItems)
+	}
+	keys(m, "z", "z", "z", "down", "enter")
+	if !m.lib || !strings.Contains(ansi.Strip(m.View()), "Nothing matches") {
+		t.Errorf("no-match view:\n%s", ansi.Strip(m.View()))
+	}
+	// Esc clears the filter, then closes the list.
+	keys(m, "esc")
+	if !m.lib || len(m.libItems) != all {
+		t.Fatalf("esc: lib=%v n=%d", m.lib, len(m.libItems))
+	}
+	keys(m, "esc")
+	if m.lib {
+		t.Error("second esc didn't close the list")
 	}
 }

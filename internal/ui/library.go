@@ -31,8 +31,15 @@ type libItem struct {
 // current command and returns how many saved entries (presets and recent
 // commands) it holds.
 func (m *Model) loadLibrary() int {
+	saved := m.buildLibrary()
+	m.filterLibrary()
+	return saved
+}
+
+// buildLibrary collects every entry into m.libAll.
+func (m *Model) buildLibrary() int {
 	m.libItems = []libItem{{kind: libBlank}}
-	m.libSel = 0
+	defer func() { m.libAll = m.libItems }()
 	if m.spec == nil {
 		return 0
 	}
@@ -78,6 +85,7 @@ func (m *Model) openLibrary() tea.Cmd {
 	m.commitCustom()
 	m.dropdown = false
 	m.filtering = false
+	m.libFilter.SetValue("")
 	m.loadLibrary()
 	if len(m.libItems) == 1 {
 		if m.cfg.Store == nil {
@@ -88,6 +96,43 @@ func (m *Model) openLibrary() tea.Cmd {
 	m.lib = true
 	m.libSel = 1
 	return m.focusCurrent()
+}
+
+// filterLibrary shows the entries matching the filter's words, in the
+// line, the description or the preset's name. Blank form shows only
+// without a filter.
+func (m *Model) filterLibrary() {
+	q := strings.Fields(strings.ToLower(m.libFilter.Value()))
+	m.libSel = 0
+	if len(q) == 0 {
+		m.libItems = m.libAll
+		return
+	}
+	m.libItems = nil
+	for _, it := range m.libAll {
+		if it.kind == libBlank {
+			continue
+		}
+		hay := strings.ToLower(it.entry.Line + " " + it.entry.Name)
+		ok := true
+		for _, w := range q {
+			if !strings.Contains(hay, w) {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			m.libItems = append(m.libItems, it)
+		}
+	}
+}
+
+// libCur is the selected entry, or nil when the filter matches nothing.
+func (m *Model) libCur() *libItem {
+	if m.libSel < 0 || m.libSel >= len(m.libItems) {
+		return nil
+	}
+	return &m.libItems[m.libSel]
 }
 
 // openExamples shows the list at the manual's first example, or at the
@@ -141,26 +186,39 @@ func hasShellOperator(line string) bool {
 
 func (m *Model) closeLibrary() tea.Cmd {
 	m.lib = false
+	m.libFilter.Blur()
 	return m.focusCurrent()
 }
 
 func (m *Model) updateLibrary(k tea.KeyMsg) tea.Cmd {
 	n := len(m.libItems)
 	switch k.String() {
-	case "up", "k", "ctrl+p", "shift+tab":
-		m.libSel = (m.libSel - 1 + n) % n
-	case "down", "j", "ctrl+n", "tab":
-		m.libSel = (m.libSel + 1) % n
-	case "home", "g":
+	case "up", "ctrl+p", "shift+tab":
+		if n > 0 {
+			m.libSel = (m.libSel - 1 + n) % n
+		}
+		return nil
+	case "down", "ctrl+n", "tab":
+		if n > 0 {
+			m.libSel = (m.libSel + 1) % n
+		}
+		return nil
+	case "home":
 		m.libSel = 0
-	case "end", "G":
-		m.libSel = n - 1
-	case "enter", " ":
-		it := m.libItems[m.libSel]
+		return nil
+	case "end":
+		m.libSel = max(0, n-1)
+		return nil
+	case "enter":
+		it := m.libCur()
+		if it == nil {
+			return nil
+		}
 		if it.copyOnly {
 			return m.copyText(it.entry.Line, "Copied the example. It uses operators or an order the form can't keep, so it's copied as written")
 		}
 		m.lib = false
+		m.libFilter.Blur()
 		if it.kind == libBlank {
 			return m.focusCurrent()
 		}
@@ -174,25 +232,47 @@ func (m *Model) updateLibrary(k tea.KeyMsg) tea.Cmd {
 		}
 		return tea.Batch(m.focusCurrent(), m.setStatus("Loaded "+what+". Adjust it, then ⏎ to run.", false))
 	case "ctrl+y":
-		if it := m.libItems[m.libSel]; it.kind != libBlank {
+		if it := m.libCur(); it != nil && it.kind != libBlank {
 			return m.copyText(it.entry.Line, "Copied to clipboard")
 		}
-	case "d", "x", "delete", "backspace":
+		return nil
+	case "delete", "ctrl+d":
 		return m.deleteLibraryItem()
-	case "esc", "ctrl+l", "ctrl+x":
+	case "esc":
+		if m.libFilter.Value() != "" {
+			m.libFilter.SetValue("")
+			m.filterLibrary()
+			return nil
+		}
+		return m.closeLibrary()
+	case "ctrl+l", "ctrl+x":
 		return m.closeLibrary()
 	case "ctrl+t":
 		m.lib = false
+		m.libFilter.Blur()
 		return m.startNaming()
-	case "ctrl+o", "f1", "?":
+	case "ctrl+o", "f1":
 		m.lib = false
+		m.libFilter.Blur()
 		m.openManual()
+		return nil
 	}
-	return nil
+	// Anything else is typing in the filter.
+	before := m.libFilter.Value()
+	var cmd tea.Cmd
+	m.libFilter, cmd = m.libFilter.Update(k)
+	if m.libFilter.Value() != before {
+		m.filterLibrary()
+	}
+	return cmd
 }
 
 func (m *Model) deleteLibraryItem() tea.Cmd {
-	it := m.libItems[m.libSel]
+	cur := m.libCur()
+	if cur == nil {
+		return nil
+	}
+	it := *cur
 	switch it.kind {
 	case libPreset:
 		m.cfg.Store.DeletePreset(m.spec.Command, it.entry.Name)
@@ -205,7 +285,8 @@ func (m *Model) deleteLibraryItem() tea.Cmd {
 	}
 	err := m.cfg.Store.Save()
 	sel := m.libSel
-	if m.loadLibrary() == 0 {
+	m.loadLibrary()
+	if len(m.libAll) == 1 { // only Blank form is left
 		m.lib = false
 		m.focusCurrent()
 	}
@@ -272,7 +353,10 @@ func (m *Model) updateNaming(k tea.KeyMsg) tea.Cmd {
 
 // libraryBody renders the presets & recent list in place of the options.
 func (m *Model) libraryBody(inner, height int) []string {
-	head := []string{sDim.Render("Start from a saved command, an example, or a blank form:"), ""}
+	head := []string{sHeader.Render("⌕ ") + m.libFilter.View(), ""}
+	if len(m.libItems) == 0 {
+		return append(head, sDim.Render("Nothing matches. Esc clears the filter."))
+	}
 	// Lay out every entry with its headings, then scroll to the selection.
 	var lines []string
 	selLine := 0
@@ -363,7 +447,11 @@ func (m *Model) styledLine(line string, withCmd bool) string {
 
 // libraryHelp explains the selected entry in the help pane.
 func (m *Model) libraryHelp(w int) []string {
-	it := m.libItems[m.libSel]
+	cur := m.libCur()
+	if cur == nil {
+		return dimWrap("Nothing matches the filter.", w)
+	}
+	it := *cur
 	var lines []string
 	switch it.kind {
 	case libBlank:
@@ -397,7 +485,7 @@ func (m *Model) libraryHelp(w int) []string {
 			lines = append(lines, m.styledLine(wl, i == 0))
 		}
 		lines = append(lines, "")
-		lines = append(lines, dimWrap("⏎ loads it into the form so you can adjust it before running. d deletes it.", w)...)
+		lines = append(lines, dimWrap("⏎ loads it into the form so you can adjust it before running. ⌦ or ^D deletes it.", w)...)
 	}
 	if it.kind != libBlank {
 		if parts := m.explainEntry(it.entry.Line); len(parts) > 0 {
@@ -443,10 +531,18 @@ func dimWrap(s string, w int) []string {
 	return out
 }
 
-// libraryTitle names what the list holds.
+// libraryTitle names what the list holds, and how much the filter shows.
 func (m *Model) libraryTitle() string {
+	t := m.libraryKind()
+	if m.libFilter.Value() != "" {
+		t += " · " + itoa(len(m.libItems)) + " of " + itoa(len(m.libAll)-1)
+	}
+	return t
+}
+
+func (m *Model) libraryKind() string {
 	saved, examples := false, false
-	for _, it := range m.libItems {
+	for _, it := range m.libAll {
 		switch it.kind {
 		case libPreset, libRecent:
 			saved = true
