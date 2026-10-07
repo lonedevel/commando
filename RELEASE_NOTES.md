@@ -1,5 +1,39 @@
 # Release notes
 
+## v0.21.0
+
+Better at reading `--help` output, so tools without a manual get fuller forms.
+
+### Improved
+
+- `-a --all`, with no comma between the names, is read as one option with two names, as systemd's and binutils' tools write it. `-c --order=cpu` is read as a flag that stands for that setting.
+- wget's layout is read in full: `-T,  --timeout=SECONDS` and the long-only options lined up under it. wget's form goes from 103 option names to 197.
+- Arguments written as `<ID,...>` no longer stop the option, and the one above it, from being read (pgrep and pkill: 31 to 54 names).
+- `--lint|--enable-checks` gives two names for one option.
+- When a manual describes an option twice, new names in the second entry are added to the first (rsync's `--cc` for `--checksum-choice`). A second entry that sets a fixed value becomes its own flag (ls `-p` for `--indicator-style=slash`, sort `-C`).
+- `-1 --base, -2 --ours, -3 --theirs` in `git diff` is read as three options.
+- Across 770 tools that only have `--help`, commando now knows 777 more option names. Across 334 manuals, it knows 21 more options. None are lost in either.
+- Manuals and help text are read again the first time you open them after upgrading.
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.21.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.20.0
 
 Hundreds more option names read from manuals, notably for PostgreSQL and Java tools.
