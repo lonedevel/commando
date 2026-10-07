@@ -51,13 +51,14 @@ def help_tools():
         if subprocess.run(["man", "-w", n], capture_output=True).returncode == 0:
             return False
         try:
-            h = subprocess.run([n, "--help"], capture_output=True, text=True,
-                               timeout=3, stdin=subprocess.DEVNULL).stdout
+            h = subprocess.run([n, "--help"], capture_output=True, text=True, timeout=3,
+                               stdin=subprocess.DEVNULL, cwd=scratch).stdout
         except Exception:
             return False
         return len(re.findall(r"(?m)^\s{1,10}-{1,2}[A-Za-z]", h)) >= 3
 
-    with cf.ThreadPoolExecutor(16) as ex:
+    # Some tools write files when run; keep them out of the current folder.
+    with tempfile.TemporaryDirectory() as scratch, cf.ThreadPoolExecutor(16) as ex:
         return [n for n, k in zip(cmds, ex.map(ok, cmds)) if k]
 
 
@@ -65,7 +66,7 @@ def dump(binary, cache, name):
     env = dict(os.environ, COMMANDO_CACHE_DIR=cache, COMMANDO_NO_COMPLETIONS="1")
     try:
         out = subprocess.run([binary, "--dump", "--no-cache", name], capture_output=True,
-                             text=True, timeout=30, env=env).stdout
+                             text=True, timeout=30, env=env, cwd=cache).stdout
         return [o["names"] for o in json.loads(out).get("options") or []]
     except Exception:
         return None
