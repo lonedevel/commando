@@ -296,6 +296,8 @@ func TestParseTag(t *testing.T) {
 		{"-sourcepath dir1:dir2:...", []string{"-sourcepath"}, "dir1:dir2", false, true},
 		{"--verbose...", []string{"--verbose"}, "", false, true},
 		{"-x ...", nil, "", false, false},
+		{"--class-path path, -classpath path, or -cp path", []string{"--class-path", "-classpath", "-cp"}, "path", false, true},
+		{"-b addr or --bind-address addr", []string{"-b", "--bind-address"}, "addr", false, true},
 		{"--no-option. That is", nil, "", false, false},
 		{"-l option is given", nil, "", false, false},
 		{"--", nil, "", false, false},
@@ -435,5 +437,43 @@ func TestParseArgs(t *testing.T) {
 	s := Parse("ls", Clean(string(b)), "man")
 	if len(s.Args) != 1 || s.Args[0].Name != "file" || s.Args[0].Required || !s.Args[0].Repeat {
 		t.Errorf("BSD ls args = %+v", s.Args)
+	}
+}
+
+// DocBook pages (PostgreSQL, git) put each name of an option on its own
+// line above the description.
+func TestStackedTags(t *testing.T) {
+	page := `NAME
+       psql - PostgreSQL interactive terminal
+
+OPTIONS
+       -a
+       --echo-all
+           Print all nonempty input lines to standard output as they are read.
+
+       -c command
+       --command=command
+           Specifies that psql is to execute the given command string, command.
+
+       --csv
+           Switches to CSV (Comma-Separated Values) output mode.
+
+       -v assignment
+       --set=assignment
+       --variable=assignment
+           Perform a variable assignment, like the \set meta-command.
+`
+	s := Parse("psql", page, "man")
+	want := [][]string{{"-a", "--echo-all"}, {"-c", "--command"}, {"--csv"}, {"-v", "--set", "--variable"}}
+	if len(s.Options) != len(want) {
+		t.Fatalf("options = %+v", s.Options)
+	}
+	for i, o := range s.Options {
+		if !reflect.DeepEqual(o.Names, want[i]) {
+			t.Errorf("option %d names = %v, want %v", i, o.Names, want[i])
+		}
+	}
+	if c := s.Options[1]; c.Arg != "command" || !strings.HasPrefix(c.Desc, "Specifies that psql") {
+		t.Errorf("-c = %+v", c)
 	}
 }
