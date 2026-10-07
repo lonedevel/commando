@@ -1,5 +1,33 @@
 # Release notes
 
+## v0.19.1
+
+More options read from manuals.
+
+### Fixed
+
+- An option whose argument can repeat, such as `-I dir ...` or `--themes [name ...]`, was skipped. Such options now appear in the form. Among the manuals tested, this adds tar's `--pax-option`, `--dirstat-by-file` in git's diff and log commands, and options of java, javadoc, jdb and jlink.
+- Manuals are read again the first time you open them after upgrading, so these options show up.
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.19.1
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.19.0
 
 commando gets its own manual and tab completions.
