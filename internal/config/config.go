@@ -35,8 +35,14 @@ type Command struct {
 	Values map[string][]string `toml:"values"` // extra dropdown values, by option name
 }
 
-// Themes are the accepted values of theme.
-var Themes = []string{"auto", "dark", "light", "contrast"}
+// Themes are the accepted values of theme: commando's own palette in four
+// variants, then named color schemes, meant for a terminal set to the same
+// scheme.
+var Themes = []string{
+	"auto", "dark", "light", "contrast",
+	"dracula", "nord", "gruvbox-dark", "gruvbox-light", "solarized-dark", "solarized-light",
+	"catppuccin-mocha", "catppuccin-latte", "tokyo-night",
+}
 
 // ColorRoles are the names [colors] accepts.
 var ColorRoles = []string{"accent", "command", "header", "option", "value", "argument", "path", "group", "danger", "text", "dim", "faint"}
@@ -177,7 +183,10 @@ const Starter = `# commando settings. Flags and environment variables win over t
 # recent = 10
 
 # Colors: "auto" follows your terminal's background; or "dark", "light",
-# or "contrast" for stronger colors.
+# or "contrast" for stronger colors. Or a color scheme, to match a terminal
+# that uses it: "dracula", "nord", "gruvbox-dark", "gruvbox-light",
+# "solarized-dark", "solarized-light", "catppuccin-mocha",
+# "catppuccin-latte" or "tokyo-night".
 # theme = "auto"
 
 # Override any color by its role: accent, command, header, option, value,

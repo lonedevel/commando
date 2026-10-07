@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	gradFrom = [3]int{0xF4, 0x72, 0xB6} // pink
-	gradTo   = [3]int{0x22, 0xD3, 0xEE} // cyan
+	gradFrom [3]int // the logo's gradient, set with the palette
+	gradTo   [3]int
 )
 
 func itoa(n int) string { return strconv.Itoa(n) }
