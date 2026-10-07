@@ -334,6 +334,10 @@ func parseTag(tag string) (tagInfo, bool) {
 			arg = arg[1 : len(arg)-1]
 		}
 		arg = strings.TrimSpace(arg)
+		// "dir ...", "name...": the option takes one or more of them.
+		if a := strings.TrimSpace(strings.TrimSuffix(arg, "...")); a != arg && a != "" {
+			arg = strings.TrimSpace(strings.TrimRight(a, ",:;"))
+		}
 		if strings.HasPrefix(arg, "<") && strings.HasSuffix(arg, ">") {
 			arg = arg[1 : len(arg)-1]
 		}
