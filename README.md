@@ -228,7 +228,9 @@ risky = ["--privileged"]        # always mark these ⚠
 terminals set to the same color scheme: `dracula`, `nord`, `tokyo-night`,
 `catppuccin-mocha`, `catppuccin-latte`, `gruvbox-dark`, `gruvbox-light`,
 `solarized-dark` and `solarized-light`. `[colors]` still adjusts any role
-on top of a theme.
+on top of a theme. `commando --themes` prints a sample form in each theme in
+your own terminal, so you can see which suits it (`commando --themes nord
+dracula` shows just those).
 
 ![The same commando form in the default theme and in each named theme](docs/themes.png)
 
