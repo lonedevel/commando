@@ -726,3 +726,21 @@ func TestLibraryFilter(t *testing.T) {
 		t.Error("second esc didn't close the list")
 	}
 }
+
+func TestThemeSample(t *testing.T) {
+	defer ApplyTheme(lipgloss.DefaultRenderer(), "auto", nil)
+	for _, name := range config.Themes {
+		ApplyTheme(lipgloss.DefaultRenderer(), name, nil)
+		for _, w := range []int{40, 80, 200} {
+			out := ThemeSample(w)
+			if !strings.Contains(ansi.Strip(out), "ls -l --force --sort=time ~/src") {
+				t.Fatalf("%s: sample lacks the command:\n%s", name, ansi.Strip(out))
+			}
+			for _, l := range strings.Split(out, "\n") {
+				if lw := ansi.StringWidth(l); lw > max(w, 50) {
+					t.Errorf("%s at %d: line %d wide: %q", name, w, lw, ansi.Strip(l))
+				}
+			}
+		}
+	}
+}

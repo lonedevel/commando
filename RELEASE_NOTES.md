@@ -1,5 +1,35 @@
 # Release notes
 
+## v0.15.0
+
+See how each color theme looks in your own terminal before choosing one.
+
+### New: preview themes
+
+- `commando --themes` prints a small sample form in each of the 13 themes. The sample uses the same colors and styles as the real form: checkboxes, a dropdown, a radio group, a ⚠ option, a path field and the command they build.
+- Name themes to see only those: `commando --themes nord dracula`.
+- The theme set in your settings file is marked "← your setting". A misspelled name lists the valid ones.
+- To use one, set `theme = "NAME"` in the settings file (`commando --config` creates it).
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.15.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.14.0
 
 Find what you need in long lists of examples and saved commands.

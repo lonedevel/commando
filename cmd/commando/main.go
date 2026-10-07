@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -28,7 +29,7 @@ import (
 	"github.com/lonedevel/commando/internal/ui"
 )
 
-var version = "0.14.0"
+var version = "0.15.0"
 
 const usage = `commando — a friendly front-end for Unix command options
 
@@ -49,6 +50,8 @@ Flags:
       --init SHELL   print shell integration for zsh, bash or fish
       --explain      describe each option and argument of a command line,
                      from its manual, without opening the form
+      --themes [NAME...]
+                     show a sample of each color theme (or the ones named)
       --config       show where the settings file is, creating a commented one
                      if there isn't one, and check it
       --dump         print the parsed options as JSON and exit
@@ -70,8 +73,8 @@ func main() {
 
 func run(argv []string) int {
 	var (
-		printOnly, long, noCache, dump, noHistory, explain, showConfig bool
-		line, initShell                                                string
+		printOnly, long, noCache, dump, noHistory, explain, showConfig, themes bool
+		line, initShell                                                        string
 	)
 	i := 0
 	for ; i < len(argv); i++ {
@@ -105,6 +108,8 @@ func run(argv []string) int {
 			explain = true
 		case "--config":
 			showConfig = true
+		case "--themes":
+			themes = true
 		case "--no-history":
 			noHistory = true
 		case "-l", "--line":
@@ -130,6 +135,9 @@ func run(argv []string) int {
 		fmt.Fprintln(os.Stderr, "commando: settings:", err)
 	}
 	long = long || settings.Long
+	if themes {
+		return showThemes(argv[i:], settings)
+	}
 	if initShell != "" {
 		s, ok := shellInit[initShell]
 		if !ok {
@@ -233,6 +241,53 @@ func explainLine(line string, useCache bool, settings *config.Config) int {
 		width = c
 	}
 	fmt.Print(ui.Explain(context.Background(), line, width, useCache, settings))
+	return 0
+}
+
+// showThemes prints a sample form in each theme, or in the ones named.
+func showThemes(names []string, settings *config.Config) int {
+	if len(names) == 0 {
+		names = config.Themes
+	}
+	for _, n := range names {
+		if !slices.Contains(config.Themes, n) {
+			fmt.Fprintf(os.Stderr, "commando: no theme %q; the themes are %s\n", n, strings.Join(config.Themes, ", "))
+			return 2
+		}
+	}
+	r := lipgloss.NewRenderer(os.Stdout)
+	if !term.IsTerminal(os.Stdout.Fd()) {
+		fmt.Fprintln(os.Stderr, "commando: run --themes in a terminal to see the colors")
+	}
+	width := 80
+	if w, _, err := term.GetSize(os.Stdout.Fd()); err == nil && w > 0 {
+		width = w
+	}
+	about := map[string]string{
+		"auto":     "the default: follows your terminal's background",
+		"dark":     "the default colors, for a dark background",
+		"light":    "the default colors, for a light background",
+		"contrast": "stronger colors",
+	}
+	for i, n := range names {
+		ui.UseRenderer(r)
+		ui.ApplyTheme(r, n, nil)
+		if i > 0 {
+			fmt.Println()
+		}
+		head := fmt.Sprintf("theme = %q", n)
+		note := about[n]
+		if note == "" {
+			note = "for a terminal using the " + n + " color scheme"
+		}
+		if n == settings.Theme {
+			note += "  ← your setting"
+		}
+		fmt.Println(lipgloss.NewStyle().Bold(true).Render(head) + "  " + note)
+		fmt.Println(ui.ThemeSample(width))
+	}
+	fmt.Println()
+	fmt.Println("Set one with theme = \"NAME\" in", config.Path(), "(commando --config creates it).")
 	return 0
 }
 

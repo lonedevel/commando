@@ -84,3 +84,37 @@ func rgb(hex string) ([3]int, bool) {
 	}
 	return out, true
 }
+
+// ThemeSample draws a small form in the current colors, for commando
+// --themes: an option of each kind, a radio group, a risky option and the
+// command they build.
+func ThemeSample(width int) string {
+	w := min(max(width, 50), 76)
+	col := w - 4 - 22
+	row := func(cursor bool, mark, label, names string) string {
+		c := "  "
+		if cursor {
+			c = sCursor.Render("❯ ")
+		}
+		return c + mark + " " + fit(label, col-6) + " " + sNameB.Render(names)
+	}
+	on, off := sOn.Render("[✓]"), sFaint.Render("[ ]")
+	body := []string{
+		sFaint.Render("⌕ press / or ^F to filter options"),
+		sHeader.Render("━━ Listing ") + sFaint.Render(strings.Repeat("─", max(0, w-15))),
+		row(true, on, sCursor.Render("Use a long listing format"), "-l"),
+		row(false, off, sText.Render("Do not ignore entries starting with ."), "-a, --all"),
+		"  " + sFaint.Render("   ") + " " + fit(sText.Render("Sort by"), col-24) + " " +
+			sValue.Render("[time ▾]") + strings.Repeat(" ", 10) + sNameB.Render("--sort"),
+		sGroup.Render("  ◇ Format") + sDim.Render(" — only one of these"),
+		row(false, sCursor.Render("(•)"), sText.Render("List entries in columns"), "-C"),
+		row(false, on, sErr.Render("⚠ ")+sText.Render("Remove each existing destination"), "--force"),
+		"     " + sArg.Render("Dir") + sDim.Render("  ") + sValue.Render("[~/src ]") + sFaint.Render("  Tab completes paths"),
+	}
+	title := " " + logo() + "  " + sCmd.Render("ls") + sDim.Render(" — list directory contents")
+	opts := box(sHeader.Render("Options")+sDim.Render(" · 3 set"), body, w, len(body)+2, cViolet)
+	cmd := box(sHeader.Render("Command")+sDim.Render(" · ⏎ to run"),
+		[]string{sCursor.Render("❯ ") + sCmd.Render("ls") + " " + sNameB.Render("-l --force --sort=") + sValue.Render("time") + " " + sArg.Render("~/src")},
+		w, 3, cPink)
+	return title + "\n" + opts + "\n" + cmd
+}
