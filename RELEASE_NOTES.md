@@ -1,5 +1,39 @@
 # Release notes
 
+## v0.19.0
+
+commando gets its own manual and tab completions.
+
+### New: `man commando`
+
+- A manual page covering commando's flags, keys, shell integration, settings and data files, environment variables and exit status.
+- Homebrew installs it. The release archives include it as `commando.1`.
+
+### New: tab completions
+
+- `commando --completion zsh`, `bash` or `fish` prints completions, and Homebrew installs them for you.
+- Tab completes commando's flags, the shells for `--init`, and theme names after `--themes`. After that comes the command you're running and its own arguments, as if commando weren't in front: `commando git chec<Tab>` completes `checkout`.
+- Without Homebrew, add `source <(commando --completion zsh)` to `~/.zshrc` after `compinit`, `source <(commando --completion bash)` to `~/.bashrc`, or `commando --completion fish | source` to `config.fish`.
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`. Homebrew now also installs the manual and the tab completions.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.19.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.18.0
 
 Tidy your history from the start screen.
