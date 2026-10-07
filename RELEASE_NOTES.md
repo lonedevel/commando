@@ -1,5 +1,34 @@
 # Release notes
 
+## v0.17.0
+
+A new look for the README, with a recording of commando in use.
+
+### Documentation
+
+- The README opens with an animated recording: choosing `git log` from git's commands, loading an example from its manual with `^X`, explaining a `find` command with `--explain`, and searching past commands from the start screen.
+- A short "At a glance" list now leads, and the full feature list is grouped by topic under "Features in detail".
+- commando itself works as in v0.16.0.
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.17.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.16.0
 
 Find anything you've run before, from the start screen.
