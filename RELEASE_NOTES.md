@@ -1,5 +1,38 @@
 # Release notes
 
+## v0.12.0
+
+Examples now appear under the options they belong to.
+
+### New: per-option examples
+
+- Some manuals give an example under each option. curl's has one for nearly every option, such as `curl --retry 7 https://example.com`. The help panel now shows the focused option's examples as highlighted commands, right under its name.
+- Press `^X` on that option to jump straight to its example in the examples list. Press Enter to load it into the form and adjust it. Examples the form can't hold exactly are still marked ⧉ and copied instead.
+- Every option in curl's manual has at least one example.
+
+### Fixes
+
+- The list of presets, recent commands and examples no longer scrolls the selected entry out of view.
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.12.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.11.0
 
 commando now has a settings file, for your defaults, colors, and corrections to what it reads from manuals.
