@@ -81,13 +81,19 @@ func (m *Model) viewPick() string {
 	}
 	if m.pickErr != "" {
 		lines = append(lines, "", sErr.Render("✗ ")+sText.Render(m.pickErr))
+	} else if m.status != "" {
+		lines = append(lines, "", m.statusView())
 	}
 	hint := "type a command, or words to search your history"
 	if m.cfg.Store == nil {
 		hint = "type a command"
 	}
-	lines = append(lines, "", sDim.Render(hint),
-		keyHelp([][2]string{{"⏎", "open"}, {"tab", "complete"}, {"↑↓", "choose"}, {"esc", "clear/quit"}}))
+	keys := [][2]string{{"⏎", "open"}, {"tab", "complete"}, {"↑↓", "choose"}}
+	if it := m.pickSel(); it != nil && it.history {
+		keys = append(keys, [2]string{"^D", "delete"})
+	}
+	keys = append(keys, [2]string{"esc", "clear/quit"})
+	lines = append(lines, "", sDim.Render(hint), keyHelp(keys))
 	card := box(sDim.Render("start"), lines, w, len(lines)+2, cViolet)
 	return m.center(card)
 }

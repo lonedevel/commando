@@ -227,7 +227,8 @@ any presets you save:
 - **Start from anywhere:** running `commando` with no command lists your most
   recent commands across all tools. Type words to search everything you've
   run and saved, such as `photos` or `rsync backup`, and press Enter to open
-  that line's form. Command names still complete as you type.
+  that line's form. Command names still complete as you type. `^D` deletes
+  the highlighted line or preset, and `^Z` brings it back.
 
 They are stored in `~/Library/Application Support/commando/store.json` on
 macOS and `~/.config/commando/store.json` on Linux (set `COMMANDO_DATA_DIR`
@@ -296,6 +297,10 @@ dracula` shows just those).
 | `Ctrl-R` | Clear everything |
 | `Enter` | Run the command (or print it with `-p`) |
 | `Esc` | Close dropdown / clear filter / back to the command list / quit |
+
+On the start screen: type a command or words to search your history, `↑↓`
+choose, `Enter` open, `Tab` complete, `^D` delete the highlighted line or
+preset, `^Z` undo that, `Esc` clear or quit.
 
 In the command list: type to filter, `↑↓` choose, `Enter` open, `^O` the
 tool's manual, `Esc` clear the filter, go up a level, or quit.

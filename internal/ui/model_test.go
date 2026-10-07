@@ -64,6 +64,10 @@ func keys(m *Model, ks ...string) {
 			msg = tea.KeyMsg{Type: tea.KeyCtrlO}
 		case "ctrl+s":
 			msg = tea.KeyMsg{Type: tea.KeyCtrlS}
+		case "ctrl+d":
+			msg = tea.KeyMsg{Type: tea.KeyCtrlD}
+		case "ctrl+z":
+			msg = tea.KeyMsg{Type: tea.KeyCtrlZ}
 		default:
 			msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(k)}
 		}
@@ -783,5 +787,47 @@ func TestStartScreenSearch(t *testing.T) {
 	keys(m, "down", "enter")
 	if m.mode != modeLoading || m.cfg.Line != "tar -czf photos.tgz photos" {
 		t.Errorf("enter: mode %v line %q", m.mode, m.cfg.Line)
+	}
+}
+
+func TestStartScreenDelete(t *testing.T) {
+	t.Setenv("COMMANDO_DATA_DIR", t.TempDir())
+	st := store.Load()
+	now := time.Now()
+	st.AddRecent("git log", "git log --oneline", now.Add(-time.Hour))
+	st.AddRecent("tar", "tar -xzf release.tgz", now)
+	st.SavePreset("tar", "backup photos", "tar -czf photos.tgz photos", now)
+
+	m := New(Config{Store: st})
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.Update(pathCmdsMsg{"tar", "git"})
+	if v := ansi.Strip(m.View()); !strings.Contains(v, "^D delete") {
+		t.Errorf("no ^D hint:\n%s", v)
+	}
+	// ^D deletes the chosen recent line, under its own command.
+	keys(m, "down", "ctrl+d")
+	if _, recent := store.Load().For("git log"); len(recent) != 0 {
+		t.Errorf("git log recent after delete = %v", recent)
+	}
+	if len(m.sugg) != 1 || m.suggSel != 0 || !strings.Contains(ansi.Strip(m.View()), "^Z to undo") {
+		t.Errorf("after delete: %+v sel %d", m.sugg, m.suggSel)
+	}
+	// ^Z puts it back, chosen again.
+	keys(m, "ctrl+z")
+	if _, recent := store.Load().For("git log"); len(recent) != 1 || !recent[0].Used.Equal(now.Add(-time.Hour)) {
+		t.Errorf("git log recent after undo = %v", recent)
+	}
+	if len(m.sugg) != 2 || m.sugg[m.suggSel].text != "git log --oneline" {
+		t.Errorf("after undo: %+v sel %d", m.sugg, m.suggSel)
+	}
+	// Presets found by a search are deleted by name.
+	keys(m, "p", "h", "o", "t", "o", "s", "down", "ctrl+d")
+	if presets, _ := store.Load().For("tar"); len(presets) != 0 {
+		t.Errorf("tar presets after delete = %v", presets)
+	}
+	// With no line chosen, ^D deletes nothing.
+	keys(m, "esc", "g", "i", "t", "ctrl+d")
+	if _, recent := m.cfg.Store.For("git log"); m.pick.Value() != "git" || len(recent) != 1 {
+		t.Errorf("ctrl+d unchosen: %q %v", m.pick.Value(), recent)
 	}
 }

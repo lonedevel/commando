@@ -23,6 +23,10 @@ type Entry struct {
 	Name string    `json:"name,omitempty"` // presets only
 	Line string    `json:"line"`           // full command line, e.g. "ls -al ~/src"
 	Used time.Time `json:"used"`           // last run (recent) or saved (preset)
+
+	// Cmd is the command it was saved under; set by AllRecent and Search,
+	// which list several commands' lines.
+	Cmd string `json:"-"`
 }
 
 // Command holds the presets and history for one command ("ls", "git commit").
@@ -193,6 +197,32 @@ func (s *Store) DeleteRecent(cmd, line string) {
 	s.prune(cmd)
 }
 
+// Restore puts back an entry removed by DeletePreset or DeleteRecent: a
+// preset when it has a name, else a recent line, keeping its time.
+func (s *Store) Restore(cmd string, e Entry) {
+	if cmd == "" || e.Line == "" {
+		return
+	}
+	e.Cmd = ""
+	c := s.get(cmd)
+	if e.Name != "" {
+		for _, p := range c.Presets {
+			if strings.EqualFold(p.Name, e.Name) {
+				return
+			}
+		}
+		c.Presets = append(c.Presets, e)
+		return
+	}
+	for _, r := range c.Recent {
+		if r.Line == e.Line {
+			return
+		}
+	}
+	c.Recent = append(c.Recent, e)
+	sort.SliceStable(c.Recent, func(i, j int) bool { return c.Recent[i].Used.After(c.Recent[j].Used) })
+}
+
 func (s *Store) prune(cmd string) {
 	if c := s.Commands[cmd]; c != nil && len(c.Presets) == 0 && len(c.Recent) == 0 {
 		delete(s.Commands, cmd)
@@ -203,8 +233,11 @@ func (s *Store) prune(cmd string) {
 // first, at most n.
 func (s *Store) AllRecent(n int) []Entry {
 	var all []Entry
-	for _, c := range s.Commands {
-		all = append(all, c.Recent...)
+	for key, c := range s.Commands {
+		for _, e := range c.Recent {
+			e.Cmd = key
+			all = append(all, e)
+		}
 	}
 	sort.SliceStable(all, func(i, j int) bool { return all[i].Used.After(all[j].Used) })
 	if len(all) > n {
@@ -249,14 +282,16 @@ func (s *Store) Search(words []string, n int) []Entry {
 		return true
 	}
 	var presets, recent []Entry
-	for _, c := range s.Commands {
+	for key, c := range s.Commands {
 		for _, p := range c.Presets {
 			if match(p) {
+				p.Cmd = key
 				presets = append(presets, p)
 			}
 		}
 		for _, r := range c.Recent {
 			if match(r) {
+				r.Cmd = key
 				recent = append(recent, r)
 			}
 		}
