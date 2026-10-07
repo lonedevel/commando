@@ -237,10 +237,14 @@ func (m *Model) helpTitle() string {
 func (m *Model) footerKeys() string {
 	var pairs [][2]string
 	if m.lib {
-		if m.libItems[m.libSel].kind == libExample {
-			return keyHelp([][2]string{{"↑↓", "choose"}, {"⏎", "load"}, {"esc", "back to form"}})
+		esc := "back to form"
+		if m.libFilter.Value() != "" {
+			esc = "clear filter"
 		}
-		return keyHelp([][2]string{{"↑↓", "choose"}, {"⏎", "load"}, {"d", "delete"}, {"esc", "back to form"}})
+		if it := m.libCur(); it == nil || it.kind == libExample || it.kind == libBlank {
+			return keyHelp([][2]string{{"type", "filter"}, {"↑↓", "choose"}, {"⏎", "load"}, {"esc", esc}})
+		}
+		return keyHelp([][2]string{{"type", "filter"}, {"↑↓", "choose"}, {"⏎", "load"}, {"⌦/^D", "delete"}, {"esc", esc}})
 	}
 	if m.filtering {
 		pairs = [][2]string{{"type", "filter"}, {"↓/⏎", "to list"}, {"esc", "clear"}}

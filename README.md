@@ -182,7 +182,8 @@ any presets you save:
 - **Reuse one:** when you open a command with no options typed, its presets
   and recent commands are listed first. Choose one and press Enter to load
   it into the form, then adjust it and run. `Ctrl-L` brings the list back at
-  any time, and `d` deletes the highlighted entry.
+  any time. Type to filter the list (`retry` finds curl's retry examples
+  among hundreds); Delete or `^D` deletes the highlighted entry.
 - **Start from anywhere:** running `commando` with no command lists your most
   recent commands across all tools.
 
