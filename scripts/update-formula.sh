@@ -65,9 +65,12 @@ class Commando < Formula
   def install
     if build.head?
       system "go", "build", *std_go_args(ldflags: "-s -w -X main.version=#{version}"), "./cmd/commando"
+      man1.install "docs/commando.1"
     else
       bin.install "commando"
+      man1.install "commando.1"
     end
+    generate_completions_from_executable(bin/"commando", "--completion")
   end
 
   def caveats
@@ -82,6 +85,8 @@ class Commando < Formula
   test do
     assert_match version.to_s, shell_output("#{bin}/commando --version")
     assert_match "bindkey", shell_output("#{bin}/commando --init zsh")
+    assert_match "compdef", shell_output("#{bin}/commando --completion zsh")
+    assert_path_exists man1/"commando.1"
 
     # Parse a manual without needing a terminal.
     ENV["COMMANDO_CACHE_DIR"] = testpath/"cache"

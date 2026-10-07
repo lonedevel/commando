@@ -29,7 +29,7 @@ import (
 	"github.com/lonedevel/commando/internal/ui"
 )
 
-var version = "0.18.0"
+var version = "0.19.0"
 
 const usage = `commando — a friendly front-end for Unix command options
 
@@ -48,6 +48,8 @@ Flags:
       --no-cache     re-parse the manual even if it is cached
       --no-history   don't record this command or show presets and history
       --init SHELL   print shell integration for zsh, bash or fish
+      --completion SHELL
+                     print tab completions for zsh, bash or fish
       --explain      describe each option and argument of a command line,
                      from its manual, without opening the form
       --themes [NAME...]
@@ -74,7 +76,7 @@ func main() {
 func run(argv []string) int {
 	var (
 		printOnly, long, noCache, dump, noHistory, explain, showConfig, themes bool
-		line, initShell                                                        string
+		line, initShell, compShell                                             string
 	)
 	i := 0
 	for ; i < len(argv); i++ {
@@ -116,6 +118,8 @@ func run(argv []string) int {
 			line = next()
 		case "--init":
 			initShell = next()
+		case "--completion":
+			compShell = next()
 		case "-v", "--version":
 			fmt.Println("commando", version)
 			return 0
@@ -129,6 +133,15 @@ func run(argv []string) int {
 	}
 	if showConfig {
 		return configCmd()
+	}
+	if compShell != "" {
+		s, ok := completion(compShell)
+		if !ok {
+			fmt.Fprintf(os.Stderr, "commando: unsupported shell %q (zsh, bash, fish)\n", compShell)
+			return 2
+		}
+		fmt.Print(s)
+		return 0
 	}
 	settings, err := config.Load()
 	if err != nil {

@@ -1,0 +1,290 @@
+.TH COMMANDO 1 2026-10-07 "commando" "User Commands"
+.nh
+.SH NAME
+commando \- a colorful form for any command's options, built from its manual
+.SH SYNOPSIS
+.B commando
+.RI [ flags ]
+.RI [ command
+.RI [ args ...]]
+.br
+.B commando \-\-explain
+.I line
+.br
+.B commando \-\-init
+.I shell
+.br
+.B commando \-\-completion
+.I shell
+.br
+.B commando \-\-themes
+.RI [ name ...]
+.SH DESCRIPTION
+.B commando
+reads a command's manual page, or its
+.B \-\-help
+output when it has no manual, and shows its options as a form:
+checkboxes for flags, dropdowns for options that take one of a set of
+values, radio buttons for options that override each other, number and
+path fields, and a field for each of the command's arguments.
+The side panel explains the focused option.
+Press Enter to run the command you built.
+.PP
+With no
+.IR command ,
+.B commando
+asks which command to run, and lists your recent command lines.
+Typing words searches every command line you've run or saved.
+.PP
+Any
+.I args
+after the command fill in the form:
+.B commando grep \-rn TODO .\&
+opens with
+.B \-r
+and
+.B \-n
+checked and
+.B TODO .\&
+as the arguments.
+.PP
+A tool with subcommands, such as
+.BR git ,
+.BR docker ,
+.B cargo
+or
+.BR go ,
+first lists its commands; choose one to open its form.
+.PP
+When you press Enter,
+.B commando
+prints the command and runs it with your
+.BR $SHELL .
+If it uses an option that can delete or overwrite data, marked with a
+warning sign in the form, it asks first.
+.SH OPTIONS
+.TP
+.BR \-p ", " \-\-print
+Print the command to standard output instead of running it.
+.TP
+.BR \-l ", " \-\-line " \fIline\fR"
+Start from an existing command line.
+The shell integration uses this to edit the line you're typing.
+.TP
+.B \-\-long
+Prefer long option names
+.RB ( \-\-all )
+over short ones
+.RB ( \-a ).
+.TP
+.B \-\-no\-cache
+Read the manual again even if it is cached.
+.TP
+.B \-\-no\-history
+Don't record this command, and don't show presets or recent commands.
+.TP
+.BI \-\-init " shell"
+Print shell integration for
+.BR zsh ,
+.B bash
+or
+.BR fish ;
+see
+.BR "SHELL INTEGRATION" .
+.TP
+.BI \-\-completion " shell"
+Print tab completions for
+.BR zsh ,
+.B bash
+or
+.BR fish .
+.TP
+.B \-\-explain
+Describe each option and argument of a command line, from the manuals,
+without opening the form.
+Pipelines, wrappers such as
+.BR sudo ,
+variable assignments and redirections are explained too.
+A line given as one argument is taken whole:
+.B commando \-\-explain \(aqfind . \-name \(dq*.tmp\(dq \-delete\(aq
+.TP
+.BR \-\-themes " [\fIname\fR]"
+Show a sample form in each color theme, or only in the themes named
+after it.
+.TP
+.B \-\-config
+Show where the settings file is, creating a commented one if there is
+none, and check it for mistakes.
+.TP
+.B \-\-dump
+Print the options read from the manual as JSON, and exit.
+.TP
+.BR \-v ", " \-\-version
+Print the version.
+.TP
+.BR \-h ", " \-\-help
+Show a summary of the flags.
+.SH KEYS
+In the form:
+.TP 18
+.BR Up ", " Down ", " Tab
+Move between fields.
+.TP
+.B Space
+Toggle a checkbox, pick a radio button, open a dropdown.
+.TP
+.BR Left ", " Right
+Cycle dropdown values, turn flags on and off, change a repeat count.
+.TP
+.BR / ", " Ctrl\-F
+Filter the options by name, label or description.
+.TP
+.BR Ctrl\-O ", " F1 ", " ?
+Open the full manual at the focused option.
+.TP
+.B Ctrl\-X
+Show examples from the manual; Enter loads one into the form.
+.TP
+.B Ctrl\-L
+Show presets, recent commands and examples.
+.TP
+.B Ctrl\-T
+Save the form as a named preset.
+.TP
+.B Ctrl\-S
+Switch between short and long option names.
+.TP
+.B Ctrl\-Y
+Copy the command to the clipboard.
+.TP
+.B Ctrl\-R
+Clear the form.
+.TP
+.B Enter
+Run the command, or print it with
+.BR \-p .
+.TP
+.B Esc
+Close a dropdown, clear the filter, go back, or quit.
+.PP
+On the start screen,
+.B Ctrl\-D
+deletes the chosen saved line or preset, and
+.B Ctrl\-Z
+puts it back.
+In the list of presets and recent commands,
+.B Ctrl\-D
+deletes the chosen entry.
+.SH SHELL INTEGRATION
+Add the integration to your shell's startup file:
+.PP
+.RS
+.nf
+eval "$(commando \-\-init zsh)"      # ~/.zshrc
+eval "$(commando \-\-init bash)"     # ~/.bashrc
+commando \-\-init fish | source      # config.fish
+.fi
+.RE
+.PP
+Then, while typing a command, press
+.B Ctrl\-X Ctrl\-O
+to edit it in
+.BR commando ;
+the result replaces the line on your prompt.
+.B Ctrl\-X ?\&
+explains the line below the prompt instead.
+The bash shortcuts need bash 4 or later.
+.PP
+Tab completions come the same way, if your package manager didn't install
+them:
+.PP
+.RS
+.nf
+source <(commando \-\-completion zsh)    # after compinit
+source <(commando \-\-completion bash)
+commando \-\-completion fish | source
+.fi
+.RE
+.SH FILES
+.TP
+.I ~/.config/commando/config.toml
+Settings: preferred option names, whether to confirm risky commands and
+keep history, how many recent commands to keep, the color theme, color
+overrides, and corrections to what was read from a manual.
+.B commando \-\-config
+writes a commented one.
+.TP
+.I ~/.config/commando/store.json
+Presets and recent commands on Linux;
+.I ~/Library/Application Support/commando/store.json
+on macOS.
+It holds full command lines, as typed.
+.TP
+.I ~/.cache/commando
+Manuals already read, on Linux;
+.I ~/Library/Caches/commando
+on macOS.
+.SH ENVIRONMENT
+.TP
+.B COMMANDO_CONFIG
+The settings file to use.
+.TP
+.B XDG_CONFIG_HOME
+Where the settings file's folder is, instead of
+.IR ~/.config .
+.TP
+.B COMMANDO_DATA_DIR
+The folder for
+.IR store.json .
+.TP
+.B COMMANDO_CACHE_DIR
+The folder for cached manuals.
+.TP
+.B COMMANDO_NO_HISTORY
+If set, don't record commands or show presets and history.
+.TP
+.B COMMANDO_NO_CONFIRM
+If set, never ask before running a risky command.
+.TP
+.B COMMANDO_NO_COMPLETIONS
+If set, don't read the shell's completion definitions for dropdown
+values.
+.TP
+.BR COMMANDO_ZSH_COMPLETIONS ", " COMMANDO_FISH_COMPLETIONS
+More folders, separated by colons, to read zsh or fish completion
+definitions from.
+.TP
+.B SHELL
+The shell that runs the command.
+.SH EXIT STATUS
+The exit status of the command that was run;
+0 after
+.B \-p
+prints a command;
+130 if you quit without running anything;
+2 for a mistake in the flags.
+.SH EXAMPLES
+.TP
+.B commando ls
+Choose options for
+.BR ls ,
+then run it.
+.TP
+.B commando git
+Choose a git command, then its options.
+.TP
+.B cmd=$(commando \-p find)
+Build a
+.B find
+command and keep it in a variable.
+.TP
+.B commando \-\-explain \(aqtar \-czvf backup.tgz \-\-exclude=.git src\(aq
+Say what each part of the line does.
+.TP
+.B commando \-\-themes nord dracula
+Compare two color themes.
+.SH SEE ALSO
+.BR man (1),
+.BR apropos (1)
+.PP
+https://github.com/lonedevel/commando
