@@ -32,6 +32,23 @@ func defaultPalette() {
 	cDim = lipgloss.AdaptiveColor{Light: "#6B7280", Dark: "#9CA3AF"}
 	cFaint = lipgloss.AdaptiveColor{Light: "#9CA3AF", Dark: "#4B5563"}
 	cOption = cViolet
+	gradFrom = [3]int{0xF4, 0x72, 0xB6} // pink
+	gradTo = [3]int{0x22, 0xD3, 0xEE}   // cyan
+}
+
+// usePalette sets the colors to a named theme's.
+func usePalette(p palette) {
+	fixed := func(hex string) lipgloss.AdaptiveColor { return lipgloss.AdaptiveColor{Light: hex, Dark: hex} }
+	cViolet, cPink, cCyan, cOption = fixed(p.accent), fixed(p.command), fixed(p.header), fixed(p.option)
+	cYellow, cGreen, cBlue, cOrange, cRed = fixed(p.value), fixed(p.argument), fixed(p.path), fixed(p.group), fixed(p.danger)
+	cText, cDim, cFaint = fixed(p.text), fixed(p.dim), fixed(p.faint)
+	// The logo's gradient runs from the command color to the header color.
+	if c, ok := rgb(p.command); ok {
+		gradFrom = c
+	}
+	if c, ok := rgb(p.header); ok {
+		gradTo = c
+	}
 }
 
 // contrastPalette has stronger colors: full white or black text, and
@@ -52,8 +69,9 @@ func contrastPalette() {
 }
 
 // ApplyTheme sets the colors: theme is "auto" (follow the terminal's
-// background), "dark", "light" or "contrast", and colors overrides roles
-// ("accent", "danger"…) with hex colors. Call it after UseRenderer.
+// background), "dark", "light", "contrast" or a named theme ("dracula",
+// "nord"…), and colors overrides roles ("accent", "danger"…) with hex
+// colors. Call it after UseRenderer.
 func ApplyTheme(r *lipgloss.Renderer, theme string, colors map[string]string) {
 	defaultPalette()
 	switch theme {
@@ -63,6 +81,10 @@ func ApplyTheme(r *lipgloss.Renderer, theme string, colors map[string]string) {
 		r.SetHasDarkBackground(false)
 	case "contrast":
 		contrastPalette()
+	default:
+		if p, ok := namedThemes[theme]; ok {
+			usePalette(p)
+		}
 	}
 	roles := map[string]*lipgloss.AdaptiveColor{
 		"accent": &cViolet, "command": &cPink, "header": &cCyan, "option": &cOption,

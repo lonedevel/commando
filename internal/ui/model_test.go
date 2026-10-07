@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/lonedevel/commando/internal/cmdline"
+	"github.com/lonedevel/commando/internal/config"
 	"github.com/lonedevel/commando/internal/manpage"
 	"github.com/lonedevel/commando/internal/store"
 )
@@ -651,5 +652,37 @@ func TestOptionExamplesUI(t *testing.T) {
 	keys(m, "enter")
 	if m.command() != "curl --retry 7 https://example.com" {
 		t.Errorf("loaded %q", m.command())
+	}
+}
+
+func TestNamedThemes(t *testing.T) {
+	defer ApplyTheme(lipgloss.DefaultRenderer(), "auto", nil)
+	for _, name := range config.Themes {
+		switch name {
+		case "auto", "dark", "light", "contrast":
+			continue
+		}
+		p, ok := namedThemes[name]
+		if !ok {
+			t.Errorf("config accepts theme %q, but there's no palette for it", name)
+			continue
+		}
+		for _, hex := range []string{p.accent, p.command, p.header, p.option, p.value, p.argument, p.path, p.group, p.danger, p.text, p.dim, p.faint} {
+			if _, ok := rgb(hex); !ok {
+				t.Errorf("%s: bad color %q", name, hex)
+			}
+		}
+	}
+	if len(namedThemes) != len(config.Themes)-4 {
+		t.Errorf("%d palettes, %d named themes in config", len(namedThemes), len(config.Themes)-4)
+	}
+	// A named theme sets every role and the logo, and [colors] still wins.
+	ApplyTheme(lipgloss.DefaultRenderer(), "dracula", map[string]string{"danger": "#123456"})
+	if cText.Dark != "#F8F8F2" || cText.Light != "#F8F8F2" || cRed.Dark != "#123456" || gradFrom != [3]int{0xFF, 0x79, 0xC6} {
+		t.Errorf("dracula: text %v danger %v gradient %v", cText, cRed, gradFrom)
+	}
+	ApplyTheme(lipgloss.DefaultRenderer(), "auto", nil)
+	if gradFrom != [3]int{0xF4, 0x72, 0xB6} {
+		t.Errorf("auto didn't restore the logo: %v", gradFrom)
 	}
 }

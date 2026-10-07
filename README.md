@@ -206,7 +206,7 @@ long = true             # prefer --long option names
 confirm = true          # ask before running a command that uses a ⚠ option
 history = true          # remember commands; offer presets and recent ones
 recent = 20             # recent commands kept per command
-theme = "contrast"      # auto, dark, light or contrast
+theme = "contrast"      # auto, dark, light, contrast, or a named scheme
 
 [colors]                # by role: accent, command, header, option, value,
 danger = "#FF5555"      # argument, path, group, danger, text, dim, faint
@@ -219,6 +219,17 @@ risky = ["--privileged"]        # always mark these ⚠
 [commands.ls.values]            # extra values for a dropdown
 "--quoting-style" = ["clocale"]
 ```
+
+#### Themes
+
+`auto` (the default) follows your terminal's background; `dark` and
+`light` fix it; `contrast` uses stronger colors. The named themes match
+terminals set to the same color scheme: `dracula`, `nord`, `tokyo-night`,
+`catppuccin-mocha`, `catppuccin-latte`, `gruvbox-dark`, `gruvbox-light`,
+`solarized-dark` and `solarized-light`. `[colors]` still adjusts any role
+on top of a theme.
+
+![The same commando form in the default theme and in each named theme](docs/themes.png)
 
 ### Keys
 
