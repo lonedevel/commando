@@ -5,13 +5,36 @@ manual page into a form. Pick options with checkboxes, dropdowns and radio
 buttons, read what each option does as you go, then press **Enter** to run
 the command you built.
 
-```sh
-commando cp
-```
+![commando in use: choosing git log from git's commands, loading an example from its manual, explaining a find command with --explain, and searching past commands from the start screen](docs/demo.gif)
 
-![commando editing a cp command: Source and Dest fields filled in, the --reflink dropdown open with values from the shell's completions, a ⚠ on --remove-destination, and the help panel explaining the focused option](docs/screenshot.png)
+*In the recording: `commando git` lists git's commands; `log` opens the
+`git log` form and `^X` loads an example from its manual; `--explain` breaks
+down a `find` command and flags the risky `-delete`; and typing `photos` on
+the start screen finds past commands.*
 
-## Features
+## At a glance
+
+- **A form for any command** with a man page or `--help`: checkboxes,
+  dropdowns, radio buttons, number and path fields, and an argument field
+  for each of its arguments. Run it with Enter, or put it on your prompt.
+- **Help as you go:** each option explained, values described, the full
+  manual one key away, and the manual's own examples ready to load (`^X`).
+- **Subcommands:** `commando git`, `docker`, `cargo` or `go` lists their
+  commands first, nested ones too (`docker` → `container` → `ls`).
+- **Explain mode:** `commando --explain 'LINE'`, or `Ctrl-X ?` in your shell,
+  says what each part of a command line does, pipelines included.
+- **Safety:** options that delete or overwrite data are marked ⚠ and asked
+  about before running; `find` expressions keep a safe order.
+- **Remembers:** recent commands and named presets for each command, and
+  the start screen searches all of them.
+- **Yours to adjust:** a settings file for defaults and corrections, and 13
+  color themes (`commando --themes` previews them).
+- **Fast:** manuals are parsed once and cached; reopening even curl's takes
+  about 20 ms.
+
+## Features in detail
+
+### Forms from manuals
 
 - **Reads the real documentation.** Options come from the command's `man`
   page (BSD/macOS `mandoc` and GNU `groff` layouts), or from `--help` output
@@ -36,23 +59,18 @@ commando cp
 - **Readable labels.** Each option gets a label taken from the first sentence
   of its description, alongside its flag names and grouped under the manual's
   own subsections (e.g. grep's *Matching Control*, tar's *Operation mode*).
-- **Help as you go.** The side panel explains the focused option in full;
-  `^O` opens the whole manual, scrolled to that option, with `/` search.
-- **Warnings for risky options.** Options that delete or overwrite data, or
-  that skip a confirmation prompt (`rm -r`, `rm -f`, `rsync --delete`,
-  `find -delete`, `tar --remove-files`, `git push --force`…), are marked with
-  a red ⚠ and the help panel says why. If the command you built uses one,
-  Enter asks you to confirm before running it.
-- **Expressions kept in order.** For `find`, the form puts the paths first,
-  then the tests in the order you turn them on, then actions such as
-  `-print`, `-exec` and `-delete`, so `find . -name '*.tmp' -delete` never
-  becomes `find . -delete -name '*.tmp'`. If a command line you start from
-  can't be kept exactly as typed, commando says so before you run it.
 - **Conflicts handled.** When the manual says an option is mutually exclusive
   with another (“This option cancels the -P option”), turning one on turns
   the other off.
 - **Pre-fills from what you typed.** `commando grep -rn TODO .` opens with
   `-r` and `-n` already checked and `TODO .` as arguments.
+
+![commando editing a cp command: Source and Dest fields filled in, the --reflink dropdown open with values from the shell's completions, a ⚠ on --remove-destination, and the help panel explaining the focused option](docs/screenshot.png)
+
+### Help, examples and explanations
+
+- **Help as you go.** The side panel explains the focused option in full;
+  `^O` opens the whole manual, scrolled to that option, with `/` search.
 - **Examples from the manual.** `^X` lists the ready-made command lines
   from the manual's EXAMPLES section, each with its explanation: `git log`,
   `find`, `rsync`, `grep` and many more have them. Manuals that give an
@@ -66,10 +84,9 @@ commando cp
   redirections and `find`'s `!` and parentheses, and marks risky options
   with ⚠. The shell shortcut `Ctrl-X ?` explains the line you're typing, and
   the preview beside presets, recent commands and examples explains each one.
-- **Presets and recent commands.** Every command you run is remembered, and
-  `Ctrl-T` saves the current form as a named preset. The next time you open
-  `commando tar`, your presets and recent tar commands are listed first: pick
-  one and adjust it instead of starting over.
+
+### Subcommands
+
 - **Subcommands.** `commando git` lists git's commands with a line on what
   each does, grouped the way git's manual groups them (main porcelain,
   ancillary, plumbing…). Type to filter, then press Enter to open that
@@ -79,6 +96,29 @@ commando cp
   a second list: `docker` → `container` → `ls`. `commando git commit` skips the
   list and uses `git-commit(1)`; `commando cargo build` uses
   `cargo build --help`.
+
+### Safety
+
+- **Warnings for risky options.** Options that delete or overwrite data, or
+  that skip a confirmation prompt (`rm -r`, `rm -f`, `rsync --delete`,
+  `find -delete`, `tar --remove-files`, `git push --force`…), are marked with
+  a red ⚠ and the help panel says why. If the command you built uses one,
+  Enter asks you to confirm before running it.
+- **Expressions kept in order.** For `find`, the form puts the paths first,
+  then the tests in the order you turn them on, then actions such as
+  `-print`, `-exec` and `-delete`, so `find . -name '*.tmp' -delete` never
+  becomes `find . -delete -name '*.tmp'`. If a command line you start from
+  can't be kept exactly as typed, commando says so before you run it.
+
+### Reuse
+
+- **Presets and recent commands.** Every command you run is remembered, and
+  `Ctrl-T` saves the current form as a named preset. The next time you open
+  `commando tar`, your presets and recent tar commands are listed first: pick
+  one and adjust it instead of starting over.
+
+### Speed and looks
+
 - **Fast.** The form opens immediately and loads in the background. Parsed
   manuals are cached (keyed by the page's path, size and mtime), so a second
   run of even `curl`'s 5,000-line manual takes ~20 ms.
