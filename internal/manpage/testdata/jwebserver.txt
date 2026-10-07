@@ -1,0 +1,113 @@
+_J_W_E_B_S_E_R_V_E_R(1)                              JDK Commands                             _J_W_E_B_S_E_R_V_E_R(1)
+
+NNAAMMEE
+       jwebserver - launch the Java Simple Web Server
+
+SSYYNNOOPPSSIISS
+       jjwweebbsseerrvveerr [_o_p_t_i_o_n_s]
+
+       _o_p_t_i_o_n_s
+              Command-line options.  For a detailed description of the options, see OOppttiioonnss.
+
+DDEESSCCRRIIPPTTIIOONN
+       The  jjwweebbsseerrvveerr  tool provides a minimal HTTP server, designed to be used for prototyping,
+       testing, and debugging.  It serves a single directory hierarchy, and  only  serves  static
+       files.  Only HTTP/1.1 is supported; HTTP/2 and HTTPS are not supported.
+
+       Only  idempotent HEAD and GET requests are served.  Any other requests receive a 550011 -- NNoott
+       IImmpplleemmeenntteedd or a 440055 -- NNoott AAlllloowweedd response.  GET requests are mapped to the directory be-
+       ing served, as follows:
+
+       +o If the requested resource is a file, its content is served.
+
+       +o If the requested resource is a directory that contains an index file, the content of the
+         index file is served.
+
+       +o Otherwise, the names of all files and subdirectories of the directory are listed.   Sym-
+         bolic links and hidden files are not listed or served.
+
+       MIME  types  are  configured  automatically, using the built-in table.  For example, ..hhttmmll
+       files are served as tteexxtt//hhttmmll and ..jjaavvaa files are served as tteexxtt//ppllaaiinn.
+
+       jjwweebbsseerrvveerr is located in the jdk.httpserver module, and can alternatively be started  with
+       jjaavvaa   --mm   jjddkk..hhttttppsseerrvveerr.   It  is  based  on  the  web  server  implementation  in  the
+       ccoomm..ssuunn..nneett..hhttttppsseerrvveerr package.  The  ccoomm..ssuunn..nneett..hhttttppsseerrvveerr..SSiimmpplleeFFiilleeSSeerrvveerr  class  pro-
+       vides  a  programmatic  way to retrieve the server and its components for reuse and exten-
+       sion.
+
+UUSSAAGGEE
+              jjwweebbsseerrvveerr [[--bb bbiinndd aaddddrreessss]] [[--pp ppoorrtt]] [[--dd ddiirreeccttoorryy]]
+                         [[--oo nnoonnee||iinnffoo||vveerrbboossee]] [[--hh ttoo sshhooww ooppttiioonnss]]
+                         [[--vveerrssiioonn ttoo sshhooww vveerrssiioonn iinnffoorrmmaattiioonn]]
+
+OOPPTTIIOONNSS
+       --hh or --?? or ----hheellpp
+              Prints the help message and exits.
+
+       --bb _a_d_d_r or ----bbiinndd--aaddddrreessss _a_d_d_r
+              Specifies the address to bind to.  Default: 127.0.0.1 or ::1 (loopback).   For  all
+              interfaces use --bb 00..00..00..00 or --bb ::::.
+
+       --dd _d_i_r or ----ddiirreeccttoorryy _d_i_r
+              Specifies the directory to serve.  Default: current directory.
+
+       --oo _l_e_v_e_l or ----oouuttppuutt _l_e_v_e_l
+              Specifies the output format.  nnoonnee | iinnffoo | vveerrbboossee.  Default: iinnffoo.
+
+       --pp _p_o_r_t or ----ppoorrtt _p_o_r_t
+              Specifies the port to listen on.  Default: 8000.
+
+       --vveerrssiioonn or ----vveerrssiioonn
+              Prints the version information and exits.
+
+       To stop the server, press CCttrrll ++ CC.
+
+SSTTAARRTTIINNGG TTHHEE SSEERRVVEERR
+       The following command starts the Simple Web Server:
+
+              $$ jjwweebbsseerrvveerr
+
+       If  startup is successful, the server prints a message to SSyysstteemm..oouutt listing the local ad-
+       dress and the absolute path of the directory being served.  For example:
+
+              $$ jjwweebbsseerrvveerr
+              BBiinnddiinngg ttoo llooooppbbaacckk bbyy ddeeffaauulltt.. FFoorr aallll iinntteerrffaacceess uussee ""--bb 00..00..00..00"" oorr ""--bb ::::""..
+              SSeerrvviinngg //ccwwdd aanndd ssuubbddiirreeccttoorriieess oonn 112277..00..00..11 ppoorrtt 88000000
+              UURRLL hhttttpp::////112277..00..00..11::88000000//
+
+CCOONNFFIIGGUURRAATTIIOONN
+       By default, the server runs in the foreground and binds to the loopback address  and  port
+       8000.   This  can  be changed with the --bb and --pp options.  For example, to bind the Simple
+       Web Server to all interfaces, use:
+
+              $$ jjwweebbsseerrvveerr --bb 00..00..00..00
+              SSeerrvviinngg //ccwwdd aanndd ssuubbddiirreeccttoorriieess oonn 00..00..00..00 ((aallll iinntteerrffaacceess)) ppoorrtt 88000000
+              UURRLL hhttttpp::////112233..445566..77..889911::88000000//
+
+       Note that this makes the web server accessible to all hosts on the  network.   _D_o  _n_o_t  _d_o
+       _t_h_i_s _u_n_l_e_s_s _y_o_u _a_r_e _s_u_r_e _t_h_e _s_e_r_v_e_r _c_a_n_n_o_t _l_e_a_k _a_n_y _s_e_n_s_i_t_i_v_e _i_n_f_o_r_m_a_t_i_o_n_.
+
+       As another example, use the following command to run on port 9000:
+
+              $$ jjwweebbsseerrvveerr --pp 99000000
+
+       By  default,  the files of the current directory are served.  A different directory can be
+       specified with the --dd option.
+
+       By default, every request is logged on the console.  The output looks like this:
+
+              112277..00..00..11 -- -- [[1100//FFeebb//22002211::1144::3344::1111 ++00000000]] ""GGEETT //ssoommee//ssuubbddiirreeccttoorryy// HHTTTTPP//11..11"" 220000 --
+
+       Logging output can be changed with the --oo option.  The default setting is iinnffoo.  The  vveerr--
+       bboossee  setting  additionally  includes  the request and response headers as well as the ab-
+       solute path of the requested resource.
+
+SSTTOOPPPPIINNGG TTHHEE SSEERRVVEERR
+       Once started successfully, the server runs until it is stopped.  On  Unix  platforms,  the
+       server can be stopped by sending it a SSIIGGIINNTT signal (CCttrrll++CC in a terminal window).
+
+HHEELLPP OOPPTTIIOONN
+       The  --hh  option  displays a help message describing the usage and the options of the jjwweebb--
+       sseerrvveerr.
+
+JDK 21                                         2023                                 _J_W_E_B_S_E_R_V_E_R(1)

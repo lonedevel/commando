@@ -359,6 +359,19 @@ make build    # ./bin/commando
 make dist     # release archives for macOS and Linux in ./dist
 ```
 
+Before changing the parser, measure it on every manual and `--help` on
+your system, with a binary built before the change and one after:
+
+```sh
+scripts/survey.py run old-commando old.json
+scripts/survey.py run bin/commando new.json
+scripts/survey.py compare old.json new.json   # names gained and lost
+```
+
+A change should gain option names without losing any. Save a page that
+shows a new layout in `internal/manpage/testdata` and add it to
+`TestFormats`.
+
 ### Releasing
 
 Releases are published by the `Release` workflow whenever `main` declares a
