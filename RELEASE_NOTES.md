@@ -1,5 +1,41 @@
 # Release notes
 
+## v0.14.0
+
+Find what you need in long lists of examples and saved commands.
+
+### New: filter the list as you type
+
+- In the list of presets, recent commands and examples (`^L` or `^X`), typing narrows it to the entries that contain every word you type, in the command line, its description or the preset's name. In curl's nearly 300 examples, `retry` leaves the five retry ones.
+- The title shows how many entries match. Esc clears the filter first, then closes the list.
+
+### Changed keys in the list
+
+Letters now go to the filter, so the list's single-letter keys moved:
+
+- Delete a preset or recent command: Delete or `^D` (was `d` or `x`).
+- Open the manual: `^O` or `F1` (`?` now types into the filter).
+- Move: the arrow keys, Home and End (`j`, `k`, `g` and `G` now type into the filter).
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.14.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.13.0
 
 Pick a color scheme to match your terminal.
