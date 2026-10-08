@@ -87,26 +87,42 @@ def help_tools():
 
 
 def dump(binary, cache, name, kind):
+    """The option names commando reads for name, or None and why not."""
     env = dict(os.environ, COMMANDO_CACHE_DIR=cache, COMMANDO_NO_COMPLETIONS="1")
     if kind == "man":
         env["COMMANDO_NO_HELP"] = "1"  # never run the command itself
     try:
-        out = subprocess.run([binary, "--dump", "--no-cache", name], capture_output=True,
-                             text=True, timeout=30, env=env, cwd=cache).stdout
-        return [o["names"] for o in json.loads(out).get("options") or []]
-    except Exception:
-        return None
+        p = subprocess.run([binary, "--dump", "--no-cache", name], capture_output=True,
+                           text=True, timeout=30, env=env, cwd=cache)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return None, str(e)
+    try:
+        return [o["names"] for o in json.loads(p.stdout).get("options") or []], None
+    except ValueError:
+        return None, (p.stderr.strip() or "no output").splitlines()[-1]
 
 
 def run(binary, out, with_help):
+    # Commands run in a temporary folder, so a relative path must be resolved
+    # first ("bin/commando").
+    binary = os.path.abspath(binary)
+    try:
+        subprocess.run([binary, "--version"], capture_output=True, check=True, timeout=10)
+    except (OSError, subprocess.SubprocessError) as e:
+        sys.exit(f"survey: can't run {binary}: {e}")
     pages = {"man": man_pages()}
     if with_help:
         pages["help"] = help_tools()
     result = {}
     with tempfile.TemporaryDirectory() as cache, cf.ThreadPoolExecutor(8) as ex:
         for kind, names in pages.items():
-            opts = ex.map(lambda n, k=kind: dump(binary, cache, n, k), names)
-            result[kind] = {n: o for n, o in zip(names, opts) if o is not None}
+            got = list(ex.map(lambda n, k=kind: dump(binary, cache, n, k), names))
+            result[kind] = {n: o for n, (o, _) in zip(names, got) if o is not None}
+            failed = [(n, err) for n, (o, err) in zip(names, got) if o is None]
+            if failed:
+                print(f"{kind}: {len(failed)} of {len(names)} pages could not be read, such as:")
+                for n, err in failed[:5]:
+                    print(f"  {n}: {err}")
     with open(out, "w") as f:
         json.dump(result, f)
     for kind, r in result.items():
