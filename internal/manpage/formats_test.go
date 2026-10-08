@@ -43,6 +43,11 @@ func TestFormats(t *testing.T) {
 		{"journalctl-help", "journalctl", "help", 60, 85, [][]string{
 			{"-a", "--all"}, {"-D", "--directory"}, {"-b", "--boot"}, {"-f", "--follow"},
 		}},
+		// Settings as subsections named without dashes, with Default: and
+		// Type: (npm).
+		{"npm-install", "npm install", "man", 25, 25, [][]string{
+			{"--save"}, {"--omit"}, {"--install-strategy"}, {"--workspace"},
+		}},
 		// "-EB --endian=big": a flag standing for one setting.
 		{"objdump-help", "objdump", "help", 51, 77, [][]string{
 			{"-EB"}, {"-EL"}, {"-b", "--target"},
@@ -75,5 +80,23 @@ func TestFormats(t *testing.T) {
 				t.Errorf("%s: %s has names %v, want %v", c.file, w[0], got, w)
 			}
 		}
+	}
+}
+
+func TestConfigOptions(t *testing.T) {
+	b, err := os.ReadFile("testdata/npm-install.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := Parse("npm install", Clean(string(b)), "man")
+	if s.Summary != "Install a package" {
+		t.Errorf("summary = %q", s.Summary)
+	}
+	save, omit := find(t, s, "--save"), find(t, s, "--omit")
+	if save.Kind != KindFlag || omit.Kind != KindChoice || !reflect.DeepEqual(omit.Choices, []string{"dev", "optional", "peer"}) {
+		t.Errorf("--save %v, --omit %v %v", save.Kind, omit.Kind, omit.Choices)
+	}
+	if omit.Label != "Dependency types to omit from the installation tree on disk" {
+		t.Errorf("--omit label = %q", omit.Label)
 	}
 }

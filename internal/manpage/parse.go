@@ -152,6 +152,7 @@ func Parse(command, text, source string) *Spec {
 
 	p := &parser{lines: lines, spec: spec}
 	p.findOptions()
+	p.configOptions()
 	spec.Description = p.description()
 	p.detectGroups()
 	p.finishOptions()
@@ -195,8 +196,15 @@ func summaryFrom(lines []line, source string) string {
 		return ""
 	}
 	var parts []string
-	for _, l := range sectionBody(lines, "NAME") {
-		if !l.blank() {
+	in := false
+	for _, l := range lines {
+		switch {
+		case l.ind == -1:
+			in = l.sect == "NAME"
+		case !in:
+		case l.ind == -2:
+			in = false // npm puts the whole page in subsections of NAME
+		case !l.blank():
 			parts = append(parts, l.s)
 		}
 	}
@@ -431,6 +439,97 @@ func trimEllipsis(arg string) string {
 		return strings.TrimSpace(strings.TrimRight(a, ",:;"))
 	}
 	return arg
+}
+
+var (
+	configNameRe = regexp.MustCompile(`^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$`)
+	configTypeRe = regexp.MustCompile(`^(?:o\s+|•\s*)?Type:\s*(.*)$`)
+	quotedRe     = regexp.MustCompile(`"([^"]+)"`)
+)
+
+// configOptions reads settings documented as a subsection each, named
+// without dashes and followed by their default and type, as npm's
+// manuals do:
+//
+//	save
+//	    o   Default: true
+//	    o   Type: Boolean
+//	    Save installed packages to a package.json file as dependencies.
+//
+// Each is the option --save. "Type: Boolean" makes a flag; quoted values
+// ("dev", "optional", or "peer") a dropdown; anything else a text field.
+func (p *parser) configOptions() {
+	ls := p.lines
+	seen := map[string]bool{}
+	for _, o := range p.spec.Options {
+		for _, n := range o.Names {
+			seen[n] = true
+		}
+	}
+	for i, l := range ls {
+		if l.ind != -2 || !configNameRe.MatchString(l.sub) || seen["--"+l.sub] {
+			continue
+		}
+		end := i + 1
+		for end < len(ls) && ls[end].ind >= 0 {
+			end++
+		}
+		body := ls[i+1 : end]
+		typ, hasDefault := "", false
+		for _, b := range body[:min(len(body), 8)] {
+			if m := configTypeRe.FindStringSubmatch(b.s); m != nil {
+				typ = m[1]
+			}
+			if strings.Contains(b.s, "Default:") {
+				hasDefault = true
+			}
+		}
+		if typ == "" || !hasDefault {
+			continue
+		}
+		o := Option{Names: []string{"--" + l.sub}, LongEquals: true, Section: "Configuration"}
+		switch t := strings.ToLower(typ); {
+		case strings.Contains(t, "boolean") && !strings.Contains(t, "string"):
+			// a flag (--save; --no-save is npm's way to turn it off)
+		case strings.Contains(t, "number"):
+			o.Arg = "NUMBER"
+		default:
+			o.Arg = "VALUE"
+			for _, m := range quotedRe.FindAllStringSubmatch(typ, -1) {
+				o.Choices = append(o.Choices, m[1])
+			}
+			if len(o.Choices) < 2 {
+				o.Choices = nil
+			}
+		}
+		if strings.Contains(typ, "can be set multiple times") {
+			o.Repeatable = true
+		}
+		// The description, without the Default:, Type: and DEPRECATED
+		// bullets, which may wrap onto further lines.
+		var text []line
+		inBullet := false
+		for _, b := range body {
+			switch {
+			case b.blank():
+				inBullet = false
+			case strings.HasPrefix(b.s, "o ") && (strings.Contains(b.s, "Default:") || strings.Contains(b.s, "Type:") || strings.Contains(b.s, "DEPRECATED")):
+				inBullet = true
+			}
+			if !inBullet {
+				text = append(text, b)
+			}
+		}
+		o.Desc = joinParagraphs("", text)
+		if p.blocks == nil {
+			p.blocks = map[int][]line{}
+		}
+		p.blocks[len(p.spec.Options)] = body
+		p.optLines = append(p.optLines, i)
+		p.optEnd = append(p.optEnd, end)
+		seen["--"+l.sub] = true
+		p.spec.Options = append(p.spec.Options, o)
+	}
 }
 
 // mergeTags joins the names of stacked tag lines into one option.
@@ -1043,7 +1142,9 @@ func (p *parser) finishOptions() {
 			continue
 		}
 		o.Kind = kindForArg(o.Arg, o.Desc)
-		if o.Kind == KindString {
+		if o.Kind == KindString && len(o.Choices) >= 2 {
+			o.Kind = KindChoice // given with the option (npm's "Type:")
+		} else if o.Kind == KindString {
 			if ch := p.choicesFor(o); len(ch) >= 2 {
 				o.Kind = KindChoice
 				o.Choices = ch
