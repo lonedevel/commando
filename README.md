@@ -359,14 +359,19 @@ make build    # ./bin/commando
 make dist     # release archives for macOS and Linux in ./dist
 ```
 
-Before changing the parser, measure it on every manual and `--help` on
-your system, with a binary built before the change and one after:
+Before changing the parser, measure it on every manual on your system,
+with a binary built before the change and one after:
 
 ```sh
 scripts/survey.py run old-commando old.json
 scripts/survey.py run bin/commando new.json
 scripts/survey.py compare old.json new.json   # names gained and lost
 ```
+
+This only reads manuals. `--help-tools` also measures commands without a
+manual by running every program on your `PATH` with `--help`; some ignore
+it and start (on a Mac, some open windows), so use it only in a container
+or a machine set up for it.
 
 A change should gain option names without losing any. Save a page that
 shows a new layout in `internal/manpage/testdata` and add it to

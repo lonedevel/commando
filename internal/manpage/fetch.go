@@ -72,6 +72,11 @@ func Load(ctx context.Context, words []string, useCache bool) (*Spec, error) {
 		}
 	}
 
+	// COMMANDO_NO_HELP: read manuals only, never run the command to ask
+	// for --help (scripts/survey.py, which goes through every manual).
+	if os.Getenv("COMMANDO_NO_HELP") != "" {
+		return nil, fmt.Errorf("%s: %w", display, ErrNotFound)
+	}
 	bin, err := exec.LookPath(words[0])
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", display, ErrNotFound)
