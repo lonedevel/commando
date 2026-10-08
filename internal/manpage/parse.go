@@ -9,13 +9,15 @@ import (
 )
 
 var (
-	ansiRe     = regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07`)
-	pageMarkRe = regexp.MustCompile(`\(\d[\w]*\)\s*$`)
-	spacesRe   = regexp.MustCompile(`\s+`)
-	parenRe    = regexp.MustCompile(`\([^()]*\)`)
-	shortcutRe = regexp.MustCompile(`^--[\w-]+=[a-z0-9][\w.-]*$`)
-	optNameRe  = regexp.MustCompile(`^(?:--?[A-Za-z0-9#@%?][A-Za-z0-9_#@%?+.:-]*|-[,!])$`)
-	repeatRe   = regexp.MustCompile(`(?i)(multiple -\S+ options|(?:may|can) be (?:specified|given|used|repeated) (?:multiple|more than once|several|up to)|specif(?:y|ied) (?:it )?(?:multiple|more than once|several) times|repeated|each additional|more -\S+ options)`)
+	ansiRe      = regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07`)
+	pageMarkRe  = regexp.MustCompile(`\(\d[\w]*\)\s*$`)
+	spacesRe    = regexp.MustCompile(`\s+`)
+	parenRe     = regexp.MustCompile(`\([^()]*\)`)
+	ifGivenRe   = regexp.MustCompile(`^(?:If|When) (?:the )?--?[\w-]+ (?:option )?is (?:specified|given|used|present),? (?:then )?`)
+	braceListRe = regexp.MustCompile(`^\{[^{}]*[|,][^{}]*\}$`)
+	shortcutRe  = regexp.MustCompile(`^--[\w-]+=[a-z0-9][\w.-]*$`)
+	optNameRe   = regexp.MustCompile(`^(?:--?[A-Za-z0-9#@%?][A-Za-z0-9_#@%?+.:-]*|-[,!])$`)
+	repeatRe    = regexp.MustCompile(`(?i)(multiple -\S+ options|(?:may|can) be (?:specified|given|used|repeated) (?:multiple|more than once|several|up to)|specif(?:y|ied) (?:it )?(?:multiple|more than once|several) times|repeated|each additional|more -\S+ options)`)
 )
 
 // skipSections never contain options worth presenting.
@@ -152,6 +154,10 @@ func Parse(command, text, source string) *Spec {
 
 	p := &parser{lines: lines, spec: spec}
 	p.findOptions()
+	p.configOptions()
+	if len(spec.Options) == 0 && source == "man" {
+		p.synopsisOptions()
+	}
 	spec.Description = p.description()
 	p.detectGroups()
 	p.finishOptions()
@@ -195,8 +201,15 @@ func summaryFrom(lines []line, source string) string {
 		return ""
 	}
 	var parts []string
-	for _, l := range sectionBody(lines, "NAME") {
-		if !l.blank() {
+	in := false
+	for _, l := range lines {
+		switch {
+		case l.ind == -1:
+			in = l.sect == "NAME"
+		case !in:
+		case l.ind == -2:
+			in = false // npm puts the whole page in subsections of NAME
+		case !l.blank():
 			parts = append(parts, l.s)
 		}
 	}
@@ -383,6 +396,10 @@ func parseTag(tag string) (tagInfo, bool) {
 		if !strings.HasPrefix(name, "--") && len(name) > 2 && isUpperWord(name[1:]) && arg == "" && !shortcut {
 			continue // "-NUM" style pseudo options
 		}
+		if braceListRe.MatchString(arg) {
+			// "{general | ruler | find | font}": the values, not prose.
+			arg = strings.Join(strings.Fields(arg), "")
+		}
 		if arg != "" && !plausibleArg(arg) {
 			return ti, false
 		}
@@ -431,6 +448,205 @@ func trimEllipsis(arg string) string {
 		return strings.TrimSpace(strings.TrimRight(a, ",:;"))
 	}
 	return arg
+}
+
+var (
+	configNameRe = regexp.MustCompile(`^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$`)
+	configTypeRe = regexp.MustCompile(`^(?:o\s+|•\s*)?Type:\s*(.*)$`)
+	quotedRe     = regexp.MustCompile(`"([^"]+)"`)
+)
+
+// configOptions reads settings documented as a subsection each, named
+// without dashes and followed by their default and type, as npm's
+// manuals do:
+//
+//	save
+//	    o   Default: true
+//	    o   Type: Boolean
+//	    Save installed packages to a package.json file as dependencies.
+//
+// Each is the option --save. "Type: Boolean" makes a flag; quoted values
+// ("dev", "optional", or "peer") a dropdown; anything else a text field.
+func (p *parser) configOptions() {
+	ls := p.lines
+	seen := map[string]bool{}
+	for _, o := range p.spec.Options {
+		for _, n := range o.Names {
+			seen[n] = true
+		}
+	}
+	for i, l := range ls {
+		if l.ind != -2 || !configNameRe.MatchString(l.sub) || seen["--"+l.sub] {
+			continue
+		}
+		end := i + 1
+		for end < len(ls) && ls[end].ind >= 0 {
+			end++
+		}
+		body := ls[i+1 : end]
+		typ, hasDefault := "", false
+		for _, b := range body[:min(len(body), 8)] {
+			if m := configTypeRe.FindStringSubmatch(b.s); m != nil {
+				typ = m[1]
+			}
+			if strings.Contains(b.s, "Default:") {
+				hasDefault = true
+			}
+		}
+		if typ == "" || !hasDefault {
+			continue
+		}
+		o := Option{Names: []string{"--" + l.sub}, LongEquals: true, Section: "Configuration"}
+		switch t := strings.ToLower(typ); {
+		case strings.Contains(t, "boolean") && !strings.Contains(t, "string"):
+			// a flag (--save; --no-save is npm's way to turn it off)
+		case strings.Contains(t, "number"):
+			o.Arg = "NUMBER"
+		default:
+			o.Arg = "VALUE"
+			for _, m := range quotedRe.FindAllStringSubmatch(typ, -1) {
+				o.Choices = append(o.Choices, m[1])
+			}
+			if len(o.Choices) < 2 {
+				o.Choices = nil
+			}
+		}
+		if strings.Contains(typ, "can be set multiple times") {
+			o.Repeatable = true
+		}
+		// The description, without the Default:, Type: and DEPRECATED
+		// bullets, which may wrap onto further lines.
+		var text []line
+		inBullet := false
+		for _, b := range body {
+			switch {
+			case b.blank():
+				inBullet = false
+			case strings.HasPrefix(b.s, "o ") && (strings.Contains(b.s, "Default:") || strings.Contains(b.s, "Type:") || strings.Contains(b.s, "DEPRECATED")):
+				inBullet = true
+			}
+			if !inBullet {
+				text = append(text, b)
+			}
+		}
+		o.Desc = joinParagraphs("", text)
+		if p.blocks == nil {
+			p.blocks = map[int][]line{}
+		}
+		p.blocks[len(p.spec.Options)] = body
+		p.optLines = append(p.optLines, i)
+		p.optEnd = append(p.optEnd, end)
+		seen["--"+l.sub] = true
+		p.spec.Options = append(p.spec.Options, o)
+	}
+}
+
+var (
+	synGroupRe = regexp.MustCompile(`\[\s*(-[^\[\]]*?)\s*\]`)
+	synFlagRe  = regexp.MustCompile(`^(--?[A-Za-z0-9][\w-]*)(?:[ =](\S.*))?$`)
+)
+
+// synopsisOptions reads the options a manual names only in its SYNOPSIS,
+// as many BSD pages do for one or two flags ("nice [-n increment]
+// utility", "basename [-a] [-s suffix] string"). Each is described by the
+// first sentence of the page that mentions it, if any.
+func (p *parser) synopsisOptions() {
+	seen := map[string]bool{}
+	for _, g := range synGroupRe.FindAllStringSubmatch(p.spec.Synopsis, -1) {
+		alts := strings.Split(g[1], "|")
+		if len(alts) == 2 {
+			// "[-q | --quiet]": one option with a short and a long name;
+			// "[-H | -L | -P]" are several.
+			a, b := strings.TrimSpace(alts[0]), strings.TrimSpace(alts[1])
+			ma, mb := synFlagRe.FindStringSubmatch(a), synFlagRe.FindStringSubmatch(b)
+			if ma != nil && mb != nil && !strings.HasPrefix(ma[1], "--") && len(ma[1]) == 2 && strings.HasPrefix(mb[1], "--") {
+				if seen[ma[1]] || seen[mb[1]] {
+					continue
+				}
+				seen[ma[1]], seen[mb[1]] = true, true
+				o := Option{Names: []string{ma[1], mb[1]}, Section: "Synopsis", Arg: strings.Trim(ma[2]+mb[2], "<>")}
+				if o.Arg != "" && !plausibleArg(o.Arg) {
+					continue
+				}
+				o.Desc = p.sentenceAbout(mb[1])
+				if o.Desc == "" {
+					o.Desc = p.sentenceAbout(ma[1])
+				}
+				p.spec.Options = append(p.spec.Options, o)
+				continue
+			}
+		}
+		for _, alt := range alts {
+			m := synFlagRe.FindStringSubmatch(strings.TrimSpace(alt))
+			if m == nil {
+				continue
+			}
+			name, arg := m[1], strings.TrimSpace(m[2])
+			if arg != "" && (strings.HasPrefix(arg, "-") || !plausibleArg(arg)) {
+				continue
+			}
+			names := []string{name}
+			// "[-EXdsx]": several one-letter flags. A lowercase word of
+			// four letters or more ("-help") is one option.
+			if letters := name[1:]; !strings.HasPrefix(name, "--") && len(letters) > 1 && arg == "" &&
+				!(len(letters) >= 4 && strings.ToLower(letters) == letters && isAlpha(letters)) {
+				names = nil
+				for _, r := range letters {
+					names = append(names, "-"+string(r))
+				}
+			}
+			for _, n := range names {
+				if seen[n] {
+					continue
+				}
+				seen[n] = true
+				o := Option{Names: []string{n}, Section: "Synopsis"}
+				if len(names) == 1 {
+					o.Arg = strings.Trim(arg, "<>")
+				}
+				o.Desc = p.sentenceAbout(n)
+				p.spec.Options = append(p.spec.Options, o)
+			}
+		}
+	}
+}
+
+func isAlpha(s string) bool {
+	for _, r := range s {
+		if !unicode.IsLetter(r) {
+			return false
+		}
+	}
+	return s != ""
+}
+
+// sentenceAbout returns the first sentence outside the synopsis that names
+// option n ("If -a is specified, then every argument is treated as a
+// string"), or "".
+func (p *parser) sentenceAbout(n string) string {
+	re := regexp.MustCompile(`(?:^|[\s(‘'"“])` + regexp.QuoteMeta(n) + `(?:$|[\s,.;:)’'"”])`)
+	var paras []string
+	cur := ""
+	for _, l := range p.lines {
+		if l.ind >= 0 && !l.blank() && l.sect != "SYNOPSIS" && l.sect != "NAME" && !exampleSects[l.sect] {
+			cur += " " + l.s
+			continue
+		}
+		if cur != "" {
+			paras = append(paras, cur)
+			cur = ""
+		}
+	}
+	paras = append(paras, cur)
+	for _, para := range paras {
+		for _, sent := range sentences(strings.TrimSpace(para)) {
+			// About the option, not a passing mention: it comes early.
+			if loc := re.FindStringIndex(sent); loc != nil && loc[0] < 40 {
+				return bulletRe.ReplaceAllString(strings.TrimSuffix(sent, ":"), "")
+			}
+		}
+	}
+	return ""
 }
 
 // mergeTags joins the names of stacked tag lines into one option.
@@ -1043,7 +1259,9 @@ func (p *parser) finishOptions() {
 			continue
 		}
 		o.Kind = kindForArg(o.Arg, o.Desc)
-		if o.Kind == KindString {
+		if o.Kind == KindString && len(o.Choices) >= 2 {
+			o.Kind = KindChoice // given with the option (npm's "Type:")
+		} else if o.Kind == KindString {
 			if ch := p.choicesFor(o); len(ch) >= 2 {
 				o.Kind = KindChoice
 				o.Choices = ch
@@ -1156,6 +1374,11 @@ func makeLabel(o *Option) string {
 	s = strings.TrimSpace(s)
 	if n := len(s); n > 1 && (s[n-1] == '.' || s[n-1] == ';') && s[n-2] != ' ' && s[n-2] != '.' {
 		s = s[:n-1]
+	}
+	// "If -a is specified, then every argument is …" → "Every argument is …"
+	s = ifGivenRe.ReplaceAllString(s, "")
+	if s == "" && o.Arg != "" && !strings.ContainsAny(o.Arg, "{|") {
+		s = strings.ReplaceAll(o.Arg, "_", " ") // "-M core" → "Core"
 	}
 	if s == "" {
 		name := o.Names[len(o.Names)-1]

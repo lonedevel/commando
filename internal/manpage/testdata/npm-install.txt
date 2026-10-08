@@ -1,0 +1,705 @@
+_N_P_M_-_I_N_S_T_A_L_L(1)                                                                     _N_P_M_-_I_N_S_T_A_L_L(1)
+
+NNAAMMEE
+       nnppmm--iinnssttaallll - Install a package
+
+   SSyynnooppssiiss
+         npm install [<package-spec> ...]
+
+         aliases: add, i, in, ins, inst, insta, instal, isnt, isnta, isntal, isntall
+
+   DDeessccrriippttiioonn
+       This  command installs a package and any packages that it depends on. If the package has a
+       package-lock, or an npm shrinkwrap file, or a yarn lock file, the installation  of  depen-
+       dencies will be driven by that, respecting the following order of precedence:
+
+       +o   nnppmm--sshhrriinnkkwwrraapp..jjssoonn
+
+       +o   ppaacckkaaggee--lloocckk..jjssoonn
+
+       +o   yyaarrnn..lloocckk
+
+       See ppaacckkaaggee--lloocckk..jjssoonn _<_/_c_o_n_f_i_g_u_r_i_n_g_-_n_p_m_/_p_a_c_k_a_g_e_-_l_o_c_k_-_j_s_o_n_> and npm help shrinkwrap.
+
+       A ppaacckkaaggee is:
+
+       +o   a)  a  folder containing a program described by a ppaacckkaaggee..jjssoonn _<_/_c_o_n_f_i_g_u_r_i_n_g_-_n_p_m_/_p_a_c_k_-
+           _a_g_e_-_j_s_o_n_> file
+
+       +o   b) a gzipped tarball containing (a)
+
+       +o   c) a url that resolves to (b)
+
+       +o   d) a <<nnaammee>>@@<<vveerrssiioonn>> that is published on the registry (see npm help  registry)  with
+           (c)
+
+       +o   e) a <<nnaammee>>@@<<ttaagg>> (see npm help dist-tag) that points to (d)
+
+       +o   f) a <<nnaammee>> that has a "latest" tag satisfying (e)
+
+       +o   g) a <<ggiitt rreemmoottee uurrll>> that resolves to (a)
+
+       Even  if  you never publish your package, you can still get a lot of benefits of using npm
+       if you just want to write a node program (a), and perhaps if you also want to be  able  to
+       easily install it elsewhere after packing it up into a tarball (b).
+
+       +o   nnppmm iinnssttaallll (in a package directory, no arguments):
+
+       Install the dependencies to the local nnooddee__mmoodduulleess folder.
+
+       In  global mode (ie, with --gg or ----gglloobbaall appended to the command), it installs the current
+       package context (ie, the current working directory) as a global package.
+
+       By default, nnppmm iinnssttaallll will install all modules listed as  dependencies  in  ppaacckkaaggee..jjssoonn
+       _<_/_c_o_n_f_i_g_u_r_i_n_g_-_n_p_m_/_p_a_c_k_a_g_e_-_j_s_o_n_>.
+
+       With  the  ----pprroodduuccttiioonn  flag (or when the NNOODDEE__EENNVV environment variable is set to pprroodduucc--
+       ttiioonn), npm will not install modules listed in  ddeevvDDeeppeennddeenncciieess.  To  install  all  modules
+       listed  in both ddeeppeennddeenncciieess and ddeevvDDeeppeennddeenncciieess when NNOODDEE__EENNVV environment variable is set
+       to pprroodduuccttiioonn, you can use ----pprroodduuccttiioonn==ffaallssee.
+
+           NOTE: The ----pprroodduuccttiioonn flag has no particular meaning when adding a  dependency  to  a
+           project.
+
+       +o   nnppmm iinnssttaallll <<ffoollddeerr>>:
+
+       If  <<ffoollddeerr>>  sits inside the root of your project, its dependencies will be installed and
+       may be hoisted to the top-level nnooddee__mmoodduulleess as they would for other  types  of  dependen-
+       cies.  If <<ffoollddeerr>> sits outside the root of your project, _n_p_m _w_i_l_l _n_o_t _i_n_s_t_a_l_l _t_h_e _p_a_c_k_a_g_e
+       _d_e_p_e_n_d_e_n_c_i_e_s in the directory <<ffoollddeerr>>, but it will create a symlink to <<ffoollddeerr>>.
+
+           NOTE: If you want to install the content of a directory like a package from  the  reg-
+           istry instead of creating a link, you would need to use the ----iinnssttaallll--lliinnkkss option.
+
+       Example:
+
+         npm install ../../other-package --install-links
+         npm install ./sub-package
+
+       +o   nnppmm iinnssttaallll <<ttaarrbbaallll ffiillee>>:
+
+       Install  a package that is sitting on the filesystem. Note: if you just want to link a dev
+       directory into your npm root, you can do this more easily by using npm help link.
+
+       Tarball requirements:
+
+           +o   The filename _m_u_s_t use ..ttaarr, ..ttaarr..ggzz, or ..ttggzz as the extension.
+
+           +o   The package contents should reside in a subfolder inside the tarball  (usually  it
+               is  called  ppaacckkaaggee//).  npm strips one directory layer when installing the package
+               (an equivalent of ttaarr xx ----ssttrriipp--ccoommppoonneennttss==11 is run).
+
+           +o   The package must contain a ppaacckkaaggee..jjssoonn file with nnaammee and vveerrssiioonn properties.
+
+       Example:
+
+         npm install ./package.tgz
+
+       +o   nnppmm iinnssttaallll <<ttaarrbbaallll uurrll>>:
+
+       Fetch the tarball url, and then install it. In order to distinguish between this and other
+       options, the argument must start with "http://" or "https://"
+
+       Example:
+
+         npm install https://github.com/indexzero/forever/tarball/v0.5.6
+
+       +o   nnppmm iinnssttaallll [[<<@@ssccooppee>>//]]<<nnaammee>>:
+
+       Do a <<nnaammee>>@@<<ttaagg>> install, where <<ttaagg>> is the "tag" config. (See  ccoonnffiigg  _<_/_u_s_i_n_g_-_n_p_m_/_c_o_n_-
+       _f_i_g_#_t_a_g_>. The config's default value is llaatteesstt.)
+
+       In  most  cases,  this will install the version of the modules tagged as llaatteesstt on the npm
+       registry.
+
+       Example:
+
+         npm install sax
+
+       nnppmm iinnssttaallll saves any specified packages into ddeeppeennddeenncciieess by default.  Additionally,  you
+       can control where and how they get saved with some additional flags:
+
+           +o   --PP,, ----ssaavvee--pprroodd: Package will appear in your ddeeppeennddeenncciieess. This is the default un-
+               less --DD or --OO are present.
+
+           +o   --DD,, ----ssaavvee--ddeevv: Package will appear in your ddeevvDDeeppeennddeenncciieess.
+
+           +o   ----ssaavvee--ppeeeerr: Package will appear in your ppeeeerrDDeeppeennddeenncciieess.
+
+           +o   --OO,, ----ssaavvee--ooppttiioonnaall: Package will appear in your ooppttiioonnaallDDeeppeennddeenncciieess.
+
+           +o   ----nnoo--ssaavvee: Prevents saving to ddeeppeennddeenncciieess.
+
+       When  using  any of the above options to save dependencies to your package.json, there are
+       two additional, optional flags:
+
+           +o   --EE,, ----ssaavvee--eexxaacctt: Saved dependencies will be  configured  with  an  exact  version
+               rather than using npm's default semver range operator.
+
+           +o   --BB,,  ----ssaavvee--bbuunnddllee:  Saved dependencies will also be added to your bbuunnddlleeDDeeppeennddeenn--
+               cciieess list.
+
+       Further, if you have an nnppmm--sshhrriinnkkwwrraapp..jjssoonn or ppaacckkaaggee--lloocckk..jjssoonn then it will  be  updated
+       as well.
+
+       <<ssccooppee>>  is optional. The package will be downloaded from the registry associated with the
+       specified scope. If no registry is associated with the given scope the default registry is
+       assumed. See npm help scope.
+
+       Note: if you do not include the @-symbol on your scope name, npm will interpret this as  a
+       GitHub repository instead, see below. Scopes names must also be followed by a slash.
+
+       Examples:
+
+         npm install sax
+         npm install githubname/reponame
+         npm install @myorg/privatepackage
+         npm install node-tap --save-dev
+         npm install dtrace-provider --save-optional
+         npm install readable-stream --save-exact
+         npm install ansi-regex --save-bundle
+
+       +o   nnppmm iinnssttaallll <<aalliiaass>>@@nnppmm::<<nnaammee>>:
+
+       Install  a  package  under a custom alias. Allows multiple versions of a same-name package
+       side-by-side, more convenient import names for packages with otherwise long ones, and  us-
+       ing  git forks replacements or forked npm packages as replacements. Aliasing works only on
+       your project and does not rename packages in transitive dependencies. Aliases should  fol-
+       low      the      naming      conventions      stated     in     vvaalliiddaattee--nnppmm--ppaacckkaaggee--nnaammee
+       _<_h_t_t_p_s_:_/_/_w_w_w_._n_p_m_j_s_._c_o_m_/_p_a_c_k_a_g_e_/_v_a_l_i_d_a_t_e_-_n_p_m_-_p_a_c_k_a_g_e_-_n_a_m_e_#_n_a_m_i_n_g_-_r_u_l_e_s_>.
+
+       Examples:
+
+         npm install my-react@npm:react
+         npm install jquery2@npm:jquery@2
+         npm install jquery3@npm:jquery@3
+         npm install npa@npm:npm-package-arg
+
+       +o   nnppmm iinnssttaallll [[<<@@ssccooppee>>//]]<<nnaammee>>@@<<ttaagg>>:
+
+       Install the version of the package that is referenced by the specified  tag.  If  the  tag
+       does not exist in the registry data for that package, then this will fail.
+
+       Example:
+
+         npm install sax@latest
+         npm install @myorg/mypackage@latest
+
+       +o   nnppmm iinnssttaallll [[<<@@ssccooppee>>//]]<<nnaammee>>@@<<vveerrssiioonn>>:
+
+       Install  the  specified version of the package. This will fail if the version has not been
+       published to the registry.
+
+       Example:
+
+         npm install sax@0.1.1
+         npm install @myorg/privatepackage@1.5.0
+
+       +o   nnppmm iinnssttaallll [[<<@@ssccooppee>>//]]<<nnaammee>>@@<<vveerrssiioonn rraannggee>>:
+
+       Install a version of the package matching the specified version range.  This  will  follow
+       the  same  rules  for  resolving  dependencies  described  in  ppaacckkaaggee..jjssoonn _<_/_c_o_n_f_i_g_u_r_i_n_g_-
+       _n_p_m_/_p_a_c_k_a_g_e_-_j_s_o_n_>.
+
+       Note that most version ranges must be put in quotes so that your shell will treat it as  a
+       single argument.
+
+       Example:
+
+         npm install sax@">=0.1.0 <0.2.0"
+         npm install @myorg/privatepackage@"16 - 17"
+
+       +o   nnppmm iinnssttaallll <<ggiitt rreemmoottee uurrll>>:
+
+       Installs the package from the hosted git provider, cloning it with ggiitt. For a full git re-
+       mote url, only that URL will be attempted.
+
+         <protocol>://[<user>[:<password>]@]<hostname>[:<port>][:][/]<path>[#<commit-ish> | #semver:<semver>]
+
+       <<pprroottooccooll>> is one of ggiitt, ggiitt++sssshh, ggiitt++hhttttpp, ggiitt++hhttttppss, or ggiitt++ffiillee.
+
+       If ##<<ccoommmmiitt--iisshh>> is provided, it will be used to clone exactly that commit. If the commit-
+       ish  has the format ##sseemmvveerr::<<sseemmvveerr>>, <<sseemmvveerr>> can be any valid semver range or exact ver-
+       sion, and npm will look for any tags or refs matching that range in the remote repository,
+       much as it would for a registry dependency. If neither ##<<ccoommmmiitt--iisshh>>  or  ##sseemmvveerr::<<sseemmvveerr>>
+       is specified, then the default branch of the repository is used.
+
+       If the repository makes use of submodules, those submodules will be cloned as well.
+
+       If  the  package being installed contains a pprreeppaarree script, its ddeeppeennddeenncciieess and ddeevvDDeeppeenn--
+       ddeenncciieess will be installed, and the prepare script will be run, before the package is pack-
+       aged and installed.
+
+       The following git environment variables are recognized by npm and will be added to the en-
+       vironment when running git:
+
+           +o   GGIITT__AASSKKPPAASSSS
+
+           +o   GGIITT__EEXXEECC__PPAATTHH
+
+           +o   GGIITT__PPRROOXXYY__CCOOMMMMAANNDD
+
+           +o   GGIITT__SSSSHH
+
+           +o   GGIITT__SSSSHH__CCOOMMMMAANNDD
+
+           +o   GGIITT__SSSSLL__CCAAIINNFFOO
+
+           +o   GGIITT__SSSSLL__NNOO__VVEERRIIFFYY
+
+       See the git man page for details.
+
+       Examples:
+
+         npm install git+ssh://git@github.com:npm/cli.git#v1.0.27
+         npm install git+ssh://git@github.com:npm/cli#pull/273
+         npm install git+ssh://git@github.com:npm/cli#semver:^5.0
+         npm install git+https://isaacs@github.com/npm/cli.git
+         npm install git://github.com/npm/cli.git#v1.0.27
+         GIT_SSH_COMMAND='ssh -i ~/.ssh/custom_ident' npm install git+ssh://git@github.com:npm/cli.git
+
+       +o   nnppmm iinnssttaallll <<ggiitthhuubbnnaammee>>//<<ggiitthhuubbrreeppoo>>[[##<<ccoommmmiitt--iisshh>>]]:
+
+       +o   nnppmm iinnssttaallll ggiitthhuubb::<<ggiitthhuubbnnaammee>>//<<ggiitthhuubbrreeppoo>>[[##<<ccoommmmiitt--iisshh>>]]:
+
+       Install the package at hhttttppss::////ggiitthhuubb..ccoomm//ggiitthhuubbnnaammee//ggiitthhuubbrreeppoo by attempting to clone  it
+       using ggiitt.
+
+       If ##<<ccoommmmiitt--iisshh>> is provided, it will be used to clone exactly that commit. If the commit-
+       ish  has the format ##sseemmvveerr::<<sseemmvveerr>>, <<sseemmvveerr>> can be any valid semver range or exact ver-
+       sion, and npm will look for any tags or refs matching that range in the remote repository,
+       much as it would for a registry dependency. If neither ##<<ccoommmmiitt--iisshh>>  or  ##sseemmvveerr::<<sseemmvveerr>>
+       is specified, then the default branch is used.
+
+       As  with  regular  git dependencies, ddeeppeennddeenncciieess and ddeevvDDeeppeennddeenncciieess will be installed if
+       the package has a pprreeppaarree script before the package is done installing.
+
+       Examples:
+
+         npm install mygithubuser/myproject
+         npm install github:mygithubuser/myproject
+
+       +o   nnppmm iinnssttaallll ggiisstt::[[<<ggiitthhuubbnnaammee>>//]]<<ggiissttIIDD>>[[##<<ccoommmmiitt--iisshh>>||##sseemmvveerr::<<sseemmvveerr>>]]:
+
+       Install the package at hhttttppss::////ggiisstt..ggiitthhuubb..ccoomm//ggiissttIIDD by attempting to clone it using ggiitt.
+       The GitHub username associated with the gist is optional and will not be  saved  in  ppaacckk--
+       aaggee..jjssoonn.
+
+       As  with  regular  git dependencies, ddeeppeennddeenncciieess and ddeevvDDeeppeennddeenncciieess will be installed if
+       the package has a pprreeppaarree script before the package is done installing.
+
+       Example:
+
+         npm install gist:101a11beef
+
+       +o   nnppmm iinnssttaallll bbiittbbuucckkeett::<<bbiittbbuucckkeettnnaammee>>//<<bbiittbbuucckkeettrreeppoo>>[[##<<ccoommmmiitt--iisshh>>]]:
+
+       Install the package at hhttttppss::////bbiittbbuucckkeett..oorrgg//bbiittbbuucckkeettnnaammee//bbiittbbuucckkeettrreeppoo by attempting  to
+       clone it using ggiitt.
+
+       If ##<<ccoommmmiitt--iisshh>> is provided, it will be used to clone exactly that commit. If the commit-
+       ish  has the format ##sseemmvveerr::<<sseemmvveerr>>, <<sseemmvveerr>> can be any valid semver range or exact ver-
+       sion, and npm will look for any tags or refs matching that range in the remote repository,
+       much as it would for a registry dependency. If neither ##<<ccoommmmiitt--iisshh>>  or  ##sseemmvveerr::<<sseemmvveerr>>
+       is specified, then mmaasstteerr is used.
+
+       As  with  regular  git dependencies, ddeeppeennddeenncciieess and ddeevvDDeeppeennddeenncciieess will be installed if
+       the package has a pprreeppaarree script before the package is done installing.
+
+       Example:
+
+         npm install bitbucket:mybitbucketuser/myproject
+
+       +o   nnppmm iinnssttaallll ggiittllaabb::<<ggiittllaabbnnaammee>>//<<ggiittllaabbrreeppoo>>[[##<<ccoommmmiitt--iisshh>>]]:
+
+       Install the package at hhttttppss::////ggiittllaabb..ccoomm//ggiittllaabbnnaammee//ggiittllaabbrreeppoo by attempting to clone  it
+       using ggiitt.
+
+       If ##<<ccoommmmiitt--iisshh>> is provided, it will be used to clone exactly that commit. If the commit-
+       ish  has the format ##sseemmvveerr::<<sseemmvveerr>>, <<sseemmvveerr>> can be any valid semver range or exact ver-
+       sion, and npm will look for any tags or refs matching that range in the remote repository,
+       much as it would for a registry dependency. If neither ##<<ccoommmmiitt--iisshh>>  or  ##sseemmvveerr::<<sseemmvveerr>>
+       is specified, then mmaasstteerr is used.
+
+       As  with  regular  git dependencies, ddeeppeennddeenncciieess and ddeevvDDeeppeennddeenncciieess will be installed if
+       the package has a pprreeppaarree script before the package is done installing.
+
+       Example:
+
+         npm install gitlab:mygitlabuser/myproject
+         npm install gitlab:myusr/myproj#semver:^5.0
+
+       You may combine multiple arguments and even multiple types of arguments. For example:
+
+         npm install sax@">=0.1.0 <0.2.0" bench supervisor
+
+       The ----ttaagg argument will apply to all of the specified install targets. If a tag  with  the
+       given name exists, the tagged version is preferred over newer versions.
+
+       The ----ddrryy--rruunn argument will report in the usual way what the install would have done with-
+       out actually installing anything.
+
+       The ----ppaacckkaaggee--lloocckk--oonnllyy argument will only update the ppaacckkaaggee--lloocckk..jjssoonn, instead of check-
+       ing nnooddee__mmoodduulleess and downloading dependencies.
+
+       The  --ff  or ----ffoorrccee argument will force npm to fetch remote resources even if a local copy
+       exists on disk.
+
+         npm install sax --force
+
+   CCoonnffiigguurraattiioonn
+       See the npm help config help doc. Many of the configuration params have some effect on in-
+       stallation, since that's most of what npm does.
+
+       These are some of the most common options related to installation.
+
+   ssaavvee
+       +o   Default: ttrruuee unless when using nnppmm uuppddaattee where it defaults to ffaallssee
+
+       +o   Type: Boolean
+
+       Save installed packages to a ppaacckkaaggee..jjssoonn file as dependencies.
+
+       When used with the nnppmm rrmm command, removes the dependency from ppaacckkaaggee..jjssoonn.
+
+       Will also prevent writing to ppaacckkaaggee--lloocckk..jjssoonn if set to ffaallssee.
+
+   ssaavvee--eexxaacctt
+       +o   Default: false
+
+       +o   Type: Boolean
+
+       Dependencies saved to package.json will be configured with an exact  version  rather  than
+       using npm's default semver range operator.
+
+   gglloobbaall
+       +o   Default: false
+
+       +o   Type: Boolean
+
+       Operates  in  "global" mode, so that packages are installed into the pprreeffiixx folder instead
+       of the current working directory. See npm help folders for more on the differences in  be-
+       havior.
+
+       +o   packages  are installed into the {{pprreeffiixx}}//lliibb//nnooddee__mmoodduulleess folder, instead of the cur-
+           rent working directory.
+
+       +o   bin files are linked to {{pprreeffiixx}}//bbiinn
+
+       +o   man pages are linked to {{pprreeffiixx}}//sshhaarree//mmaann
+
+   iinnssttaallll--ssttrraatteeggyy
+       +o   Default: "hoisted"
+
+       +o   Type: "hoisted", "nested", "shallow", or "linked"
+
+       Sets the strategy for installing packages in node_modules. hoisted (default): Install non-
+       duplicated in top-level, and duplicated as necessary within directory  structure.  nested:
+       (formerly  --legacy-bundling)  install  in place, no hoisting. shallow (formerly --global-
+       style) only install direct deps at top-level. linked: (experimental) install in  node_mod-
+       ules/.store, link in place, unhoisted.
+
+   lleeggaaccyy--bbuunnddlliinngg
+       +o   Default: false
+
+       +o   Type: Boolean
+
+       +o   DEPRECATED: This option has been deprecated in favor of ----iinnssttaallll--ssttrraatteeggyy==nneesstteedd
+
+       Instead  of hoisting package installs in nnooddee__mmoodduulleess, install packages in the same manner
+       that they are depended on. This may cause very deep  directory  structures  and  duplicate
+       package installs as there is no de-duplicating. Sets ----iinnssttaallll--ssttrraatteeggyy==nneesstteedd.
+
+   gglloobbaall--ssttyyllee
+       +o   Default: false
+
+       +o   Type: Boolean
+
+       +o   DEPRECATED: This option has been deprecated in favor of ----iinnssttaallll--ssttrraatteeggyy==sshhaallllooww
+
+       Only install direct dependencies in the top level nnooddee__mmoodduulleess, but hoist on deeper depen-
+       dencies. Sets ----iinnssttaallll--ssttrraatteeggyy==sshhaallllooww.
+
+   oommiitt
+       +o   Default:  'dev' if the NNOODDEE__EENNVV environment variable is set to 'production', otherwise
+           empty.
+
+       +o   Type: "dev", "optional", or "peer" (can be set multiple times)
+
+       Dependency types to omit from the installation tree on disk.
+
+       Note that these dependencies _a_r_e still resolved and added to the ppaacckkaaggee--lloocckk..jjssoonn or nnppmm--
+       sshhrriinnkkwwrraapp..jjssoonn file. They are just not physically installed on disk.
+
+       If a package type appears in both the ----iinncclluuddee and ----oommiitt lists,  then  it  will  be  in-
+       cluded.
+
+       If  the resulting omit list includes ''ddeevv'', then the NNOODDEE__EENNVV environment variable will be
+       set to ''pprroodduuccttiioonn'' for all lifecycle scripts.
+
+   iinncclluuddee
+       +o   Default:
+
+       +o   Type: "prod", "dev", "optional", or "peer" (can be set multiple times)
+
+       Option that allows for defining which types of dependencies to install.
+
+       This is the inverse of ----oommiitt==<<ttyyppee>>.
+
+       Dependency types specified in ----iinncclluuddee will not be omitted, regardless of  the  order  in
+       which omit/include are specified on the command-line.
+
+   ssttrriicctt--ppeeeerr--ddeeppss
+       +o   Default: false
+
+       +o   Type: Boolean
+
+       If  set  to ttrruuee, and ----lleeggaaccyy--ppeeeerr--ddeeppss is not set, then _a_n_y conflicting ppeeeerrDDeeppeennddeenncciieess
+       will be treated as an install failure, even if npm could reasonably guess the  appropriate
+       resolution based on non-peer dependency relationships.
+
+       By default, conflicting ppeeeerrDDeeppeennddeenncciieess deep in the dependency graph will be resolved us-
+       ing  the  nearest  non-peer dependency specification, even if doing so will result in some
+       packages receiving a peer dependency outside the range set in their  package's  ppeeeerrDDeeppeenn--
+       ddeenncciieess object.
+
+       When  such an override is performed, a warning is printed, explaining the conflict and the
+       packages involved. If ----ssttrriicctt--ppeeeerr--ddeeppss is set, then this warning is treated as  a  fail-
+       ure.
+
+   pprreeffeerr--ddeedduuppee
+       +o   Default: false
+
+       +o   Type: Boolean
+
+       Prefer  to deduplicate packages if possible, rather than choosing a newer version of a de-
+       pendency.
+
+   ppaacckkaaggee--lloocckk
+       +o   Default: true
+
+       +o   Type: Boolean
+
+       If set to false, then ignore ppaacckkaaggee--lloocckk..jjssoonn files when installing. This will also  pre-
+       vent _w_r_i_t_i_n_g ppaacckkaaggee--lloocckk..jjssoonn if ssaavvee is true.
+
+   ppaacckkaaggee--lloocckk--oonnllyy
+       +o   Default: false
+
+       +o   Type: Boolean
+
+       If  set  to  true,  the  current  operation  will only use the ppaacckkaaggee--lloocckk..jjssoonn, ignoring
+       nnooddee__mmoodduulleess.
+
+       For uuppddaattee this means only the ppaacckkaaggee--lloocckk..jjssoonn will  be  updated,  instead  of  checking
+       nnooddee__mmoodduulleess and downloading dependencies.
+
+       For  lliisstt  this  means  the  output  will  be  based on the tree described by the ppaacckkaaggee--
+       lloocckk..jjssoonn, rather than the contents of nnooddee__mmoodduulleess.
+
+   ffoorreeggrroouunndd--ssccrriippttss
+       +o   Default: ffaallssee unless when using nnppmm ppaacckk or nnppmm ppuubblliisshh where it defaults to ttrruuee
+
+       +o   Type: Boolean
+
+       Run all build scripts (ie, pprreeiinnssttaallll, iinnssttaallll, and  ppoossttiinnssttaallll)  scripts  for  installed
+       packages  in  the  foreground  process, sharing standard input, output, and error with the
+       main npm process.
+
+       Note that this will generally make installs run slower, and be much noisier,  but  can  be
+       useful for debugging.
+
+   iiggnnoorree--ssccrriippttss
+       +o   Default: false
+
+       +o   Type: Boolean
+
+       If true, npm does not run scripts specified in package.json files.
+
+       Note  that commands explicitly intended to run a particular script, such as nnppmm ssttaarrtt, nnppmm
+       ssttoopp, nnppmm rreessttaarrtt, nnppmm tteesstt, and nnppmm rruunn--ssccrriipptt will still run their  intended  script  if
+       iiggnnoorree--ssccrriippttss is set, but they will _n_o_t run any pre- or post-scripts.
+
+   aauuddiitt
+       +o   Default: true
+
+       +o   Type: Boolean
+
+       When "true" submit audit reports alongside the current npm command to the default registry
+       and all registries configured for scopes. See the documentation for npm help audit for de-
+       tails on what is submitted.
+
+   bbiinn--lliinnkkss
+       +o   Default: true
+
+       +o   Type: Boolean
+
+       Tells npm to create symlinks (or ..ccmmdd shims on Windows) for package executables.
+
+       Set  to  false  to have it not do this. This can be used to work around the fact that some
+       file systems don't support symlinks, even on ostensibly Unix systems.
+
+   ffuunndd
+       +o   Default: true
+
+       +o   Type: Boolean
+
+       When "true" displays the message at the end of each nnppmm iinnssttaallll acknowledging  the  number
+       of dependencies looking for funding. See npm help fund for details.
+
+   ddrryy--rruunn
+       +o   Default: false
+
+       +o   Type: Boolean
+
+       Indicates  that you don't want npm to make any changes and that it should only report what
+       it would have done. This can be passed into any of the commands that modify your local in-
+       stallation, eg, iinnssttaallll, uuppddaattee, ddeedduuppee, uunniinnssttaallll, as well as ppaacckk and ppuubblliisshh.
+
+       Note: This is NOT honored by other network related commands, eg ddiisstt--ttaaggss, oowwnneerr, etc.
+
+   ccppuu
+       +o   Default: null
+
+       +o   Type: null or String
+
+       Override CPU architecture of native modules to install. Acceptable values are same as  ccppuu
+       field of package.json, which comes from pprroocceessss..aarrcchh.
+
+   ooss
+       +o   Default: null
+
+       +o   Type: null or String
+
+       Override  OS of native modules to install. Acceptable values are same as ooss field of pack-
+       age.json, which comes from pprroocceessss..ppllaattffoorrmm.
+
+   lliibbcc
+       +o   Default: null
+
+       +o   Type: null or String
+
+       Override libc of native modules to install. Acceptable values are same as  lliibbcc  field  of
+       package.json
+
+   wwoorrkkssppaaccee
+       +o   Default:
+
+       +o   Type: String (can be set multiple times)
+
+       Enable  running  a  command  in  the  context  of the configured workspaces of the current
+       project while filtering by running only the workspaces defined by this  configuration  op-
+       tion.
+
+       Valid values for the wwoorrkkssppaaccee config are either:
+
+       +o   Workspace names
+
+       +o   Path to a workspace directory
+
+       +o   Path  to  a parent workspace directory (will result in selecting all workspaces within
+           that folder)
+
+       When set for the nnppmm iinniitt command, this may be set to the folder of a workspace which does
+       not yet exist, to create the folder and set it up as a  brand  new  workspace  within  the
+       project.
+
+       This value is not exported to the environment for child processes.
+
+   wwoorrkkssppaacceess
+       +o   Default: null
+
+       +o   Type: null or Boolean
+
+       Set to true to run the command in the context of aallll configured workspaces.
+
+       Explicitly setting this to false will cause commands like iinnssttaallll to ignore workspaces al-
+       together. When not set explicitly:
+
+       +o   Commands that operate on the nnooddee__mmoodduulleess tree (install, update, etc.) will link work-
+           spaces into the nnooddee__mmoodduulleess folder. - Commands that do other things (test, exec, pub-
+           lish, etc.) will operate on the root project, _u_n_l_e_s_s one or more workspaces are speci-
+           fied in the wwoorrkkssppaaccee config.
+
+       This value is not exported to the environment for child processes.
+
+   iinncclluuddee--wwoorrkkssppaaccee--rroooott
+       +o   Default: false
+
+       +o   Type: Boolean
+
+       Include the workspace root when workspaces are enabled for a command.
+
+       When  false,  specifying individual workspaces via the wwoorrkkssppaaccee config, or all workspaces
+       via the wwoorrkkssppaacceess flag, will cause npm to operate only on the specified  workspaces,  and
+       not on the root project.
+
+       This value is not exported to the environment for child processes.
+
+   iinnssttaallll--lliinnkkss
+       +o   Default: false
+
+       +o   Type: Boolean
+
+       When  set file: protocol dependencies will be packed and installed as regular dependencies
+       instead of creating a symlink. This option has no effect on workspaces.
+
+   AAllggoorriitthhmm
+       Given a ppaacckkaaggee{{ddeepp}} structure: AA{{BB,,CC}},, BB{{CC}},, CC{{DD}}, the npm install algorithm produces:
+
+         A
+         +-- B
+         +-- C
+         +-- D
+
+       That is, the dependency from B to C is satisfied by the fact that A already caused C to be
+       installed at a higher level. D is still installed at the top level  because  nothing  con-
+       flicts with it.
+
+       For AA{{BB,,CC}},, BB{{CC,,DD@@11}},, CC{{DD@@22}}, this algorithm produces:
+
+         A
+         +-- B
+         +-- C
+            `-- D@2
+         +-- D@1
+
+       Because B's D@1 will be installed in the top-level, C now has to install D@2 privately for
+       itself. This algorithm is deterministic, but different trees may be produced if two depen-
+       dencies are requested for installation in a different order.
+
+       See  npm  help  folders  for a more detailed description of the specific folder structures
+       that npm creates.
+
+   SSeeee AAllssoo
+       +o   npm help folders
+
+       +o   npm help update
+
+       +o   npm help audit
+
+       +o   npm help fund
+
+       +o   npm help link
+
+       +o   npm help rebuild
+
+       +o   npm help scripts
+
+       +o   npm help config
+
+       +o   npm help npmrc
+
+       +o   npm help registry
+
+       +o   npm help dist-tag
+
+       +o   npm help uninstall
+
+       +o   npm help shrinkwrap
+
+       +o   ppaacckkaaggee..jjssoonn _<_/_c_o_n_f_i_g_u_r_i_n_g_-_n_p_m_/_p_a_c_k_a_g_e_-_j_s_o_n_>
+
+       +o   npm help workspaces
+
+NPM@10.9.4                                September 2025                           _N_P_M_-_I_N_S_T_A_L_L(1)
