@@ -25,10 +25,25 @@ import sys
 import tempfile
 
 
+def man_dirs():
+    """The man page search path. Linux's man-db prints it for "man -w";
+    macOS has manpath(1) instead, and "man -w" there prints nothing."""
+    for cmd in (["manpath"], ["man", "--path"], ["man", "-w"]):
+        try:
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=10).stdout
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        dirs = [d for d in out.strip().split(":") if d.startswith("/")]
+        if dirs:
+            return dirs
+    if os.environ.get("MANPATH"):
+        return [d for d in os.environ["MANPATH"].split(":") if d]
+    return ["/usr/share/man", "/usr/local/share/man", "/opt/homebrew/share/man"]
+
+
 def man_pages():
-    out = subprocess.run(["man", "-w"], capture_output=True, text=True).stdout
     pages = set()
-    for d in out.strip().split(":"):
+    for d in man_dirs():
         for sect in ("man1", "man8"):
             try:
                 for f in os.listdir(os.path.join(d, sect)):
@@ -37,6 +52,8 @@ def man_pages():
                         pages.add(m.group(1))
             except OSError:
                 pass
+    if not pages:
+        sys.exit("survey: found no man pages; set MANPATH to where they are")
     return sorted(pages)
 
 
