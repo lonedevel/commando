@@ -386,6 +386,11 @@ version that isn't tagged yet:
    checksums it published, and starts CI on it. Merge it once the homebrew
    checks pass. (`scripts/update-formula.sh 0.3.0` does the same by hand.)
 
+## Roadmap
+
+[ROADMAP.md](ROADMAP.md) lists what might come next, and what isn't
+planned.
+
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE).
