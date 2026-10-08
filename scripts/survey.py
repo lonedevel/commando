@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 """Measure how many options commando reads from the manuals on this system.
 
-    scripts/survey.py run BIN OUT.json    parse every man page, and every
-                                          command with only --help, with BIN
+    scripts/survey.py run BIN OUT.json    parse every man page with BIN
+    scripts/survey.py run BIN OUT.json --help-tools
+                                          also every command on PATH that has
+                                          no man page but answers --help
     scripts/survey.py compare OLD.json NEW.json
                                           options and names gained and lost
 
 Build two binaries (before and after a parser change), run both, and
 compare: a change should gain names without losing any.
+
+Reading man pages runs nothing but man. --help-tools runs every program on
+PATH with --help to find the ones without a manual; some programs ignore
+--help and start anyway (on a Mac, some open windows), so use it only on
+a machine set up for it, such as a container.
 """
 import concurrent.futures as cf
 import json
@@ -62,8 +69,10 @@ def help_tools():
         return [n for n, k in zip(cmds, ex.map(ok, cmds)) if k]
 
 
-def dump(binary, cache, name):
+def dump(binary, cache, name, kind):
     env = dict(os.environ, COMMANDO_CACHE_DIR=cache, COMMANDO_NO_COMPLETIONS="1")
+    if kind == "man":
+        env["COMMANDO_NO_HELP"] = "1"  # never run the command itself
     try:
         out = subprocess.run([binary, "--dump", "--no-cache", name], capture_output=True,
                              text=True, timeout=30, env=env, cwd=cache).stdout
@@ -72,12 +81,14 @@ def dump(binary, cache, name):
         return None
 
 
-def run(binary, out):
-    pages = {"man": man_pages(), "help": help_tools()}
+def run(binary, out, with_help):
+    pages = {"man": man_pages()}
+    if with_help:
+        pages["help"] = help_tools()
     result = {}
     with tempfile.TemporaryDirectory() as cache, cf.ThreadPoolExecutor(8) as ex:
         for kind, names in pages.items():
-            opts = ex.map(lambda n: dump(binary, cache, n), names)
+            opts = ex.map(lambda n, k=kind: dump(binary, cache, n, k), names)
             result[kind] = {n: o for n, o in zip(names, opts) if o is not None}
     with open(out, "w") as f:
         json.dump(result, f)
@@ -89,7 +100,9 @@ def run(binary, out):
 def compare(old_path, new_path):
     old, new = json.load(open(old_path)), json.load(open(new_path))
     for kind in old:
-        o, n = old[kind], new.get(kind, {})
+        if kind not in new:
+            continue
+        o, n = old[kind], new[kind]
         common = sorted(set(o) & set(n))
         gained = lost = opts_before = opts_after = 0
         losses = []
@@ -109,8 +122,8 @@ def compare(old_path, new_path):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 4 and sys.argv[1] == "run":
-        run(sys.argv[2], sys.argv[3])
+    if len(sys.argv) in (4, 5) and sys.argv[1] == "run" and sys.argv[4:] in ([], ["--help-tools"]):
+        run(sys.argv[2], sys.argv[3], sys.argv[4:] == ["--help-tools"])
     elif len(sys.argv) == 4 and sys.argv[1] == "compare":
         compare(sys.argv[2], sys.argv[3])
     else:
