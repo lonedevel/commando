@@ -100,3 +100,40 @@ func TestConfigOptions(t *testing.T) {
 		t.Errorf("--omit label = %q", omit.Label)
 	}
 }
+
+// macOS manuals: options named only in the SYNOPSIS (nice, basename), and
+// values in braces (pbcopy).
+func TestMacOSPages(t *testing.T) {
+	cases := []struct {
+		file  string
+		want  [][]string // names, arg, label
+		kinds []Kind
+	}{
+		{"macos-nice", [][]string{{"-n", "increment", "Increment"}}, []Kind{KindString}},
+		{"macos-basename", [][]string{
+			{"-a", "", "Every argument is treated as a string as if basename were invoked with …"},
+			{"-s", "suffix", "The suffix is taken as its argument, and all other arguments are treate…"},
+		}, []Kind{KindFlag, KindString}},
+		{"macos-pbcopy", [][]string{
+			{"-pboard", "{general|ruler|find|font}", "Specifies which pasteboard to copy to or paste from"},
+			{"-Prefer", "{txt|rtf|ps}", "Tells pbpaste what type of data to look for in the pasteboard first"},
+		}, []Kind{KindChoice, KindChoice}},
+	}
+	for _, c := range cases {
+		b, err := os.ReadFile("testdata/" + c.file + ".txt")
+		if err != nil {
+			t.Fatal(err)
+		}
+		s := Parse(c.file, Clean(string(b)), "man")
+		if len(s.Options) != len(c.want) {
+			t.Errorf("%s: %d options, want %d", c.file, len(s.Options), len(c.want))
+			continue
+		}
+		for i, w := range c.want {
+			o := s.Options[i]
+			if o.Names[0] != w[0] || o.Arg != w[1] || o.Label != w[2] || o.Kind != c.kinds[i] {
+				t.Errorf("%s: option %d = %v %q %q %v, want %v %v", c.file, i, o.Names, o.Arg, o.Label, o.Kind, w, c.kinds[i])
+			}
+		}
+	}
+}
