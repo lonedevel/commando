@@ -1,5 +1,39 @@
 # Release notes
 
+## v0.22.0
+
+Better at macOS and npm manuals, found by measuring them on a Mac.
+
+### Improved
+
+- **npm:** its manuals give no options in the usual form. Each setting gets its own heading, without dashes, followed by its default and type (`save`, `Type: Boolean`). These are now read as options: `npm install` gets 25 instead of none, with checkboxes for on/off settings and dropdowns where the values are listed (`--omit`: dev, optional, peer).
+- **Options only in the SYNOPSIS:** some BSD and macOS manuals name an option or two only in their SYNOPSIS line, such as `nice [-n increment] utility` and `basename [-a] [-s suffix]`. When a manual lists no options anywhere else, those are now read too. Each option is described by a sentence from the manual that mentions it.
+- **Values in braces:** `-pboard {general | ruler | find | font}` (pbcopy) is now a dropdown instead of being skipped. So is postgres's `-f`.
+- Manuals are read again the first time you open them after upgrading.
+
+### For developers
+
+- `scripts/survey.py` now runs on macOS. By default it reads man pages only and runs no other programs; `--help-tools` adds the `--help` scan, meant for containers.
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.22.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.21.0
 
 Better at reading `--help` output, so tools without a manual get fuller forms.
