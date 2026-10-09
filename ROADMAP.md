@@ -42,7 +42,7 @@ Small, well-understood pieces of work, roughly in order.
 ## Features
 
 New capabilities, in the order they'd be taken on. The first three matter
-most; the three after them are small enough to share a release.
+most; the four after them are small enough to share a release.
 
 1. **Live values for fields.** Dropdowns filled from the system as well
    as the manual: git branches for `git checkout`, container names for
@@ -73,7 +73,11 @@ most; the three after them are small enough to share a release.
    `tar --create --gzip --verbose --file=x.tgz src`, which is easier to
    read in a script. Filling the form from a line and `Ctrl-S` already do
    most of the work.
-7. **Show output inside commando (a setting).** With `output = "pane"`,
+7. **Show commando's version in the TUI.** Put the version (the same
+   one `--version` prints) on the start screen, in the corner of the
+   header or footer, so it's easy to see which release is running when
+   reporting a problem or checking an upgrade took effect.
+8. **Show output inside commando (a setting).** With `output = "pane"`,
    Enter runs the command in a pane below the form instead of leaving
    commando, so you can adjust the form and run it again. The default
    would still hand the command to your shell. Open questions: commands
