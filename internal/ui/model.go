@@ -31,6 +31,7 @@ type Config struct {
 	Store      *store.Store    // presets and history; nil disables them
 	Confirm    bool            // ask before running a command that uses risky options
 	Settings   *config.Config  // the settings file's corrections; may be nil
+	Version    string          // commando's version, shown on the start screen; may be empty
 }
 
 // Result is what the user decided.

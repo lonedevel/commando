@@ -46,7 +46,14 @@ func logo() string { return gradient("◆ commando", gradFrom, gradTo) }
 func (m *Model) viewPick() string {
 	w := min(72, m.w-4)
 	var lines []string
-	lines = append(lines, logo()+sDim.Render("  build a command line from its manual"), "")
+	head := logo() + sDim.Render("  build a command line from its manual")
+	if v := m.cfg.Version; v != "" {
+		v = "v" + v
+		if gap := w - 4 - ansi.StringWidth(head) - ansi.StringWidth(v); gap >= 2 {
+			head += strings.Repeat(" ", gap) + sFaint.Render(v)
+		}
+	}
+	lines = append(lines, head, "")
 	lines = append(lines, sBold.Render("Which command would you like to run?"), "")
 	m.pick.Width = w - 8
 	lines = append(lines, m.pick.View())

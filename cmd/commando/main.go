@@ -201,7 +201,7 @@ func run(argv []string) int {
 	// Printing only puts the command on the prompt for review, so there is
 	// nothing to confirm.
 	confirm := !printOnly && settings.Confirm && os.Getenv("COMMANDO_NO_CONFIRM") == ""
-	model := ui.New(ui.Config{Line: line, UseCache: !noCache, PreferLong: long, Output: out, Store: st, Confirm: confirm, Settings: settings})
+	model := ui.New(ui.Config{Line: line, UseCache: !noCache, PreferLong: long, Output: out, Store: st, Confirm: confirm, Settings: settings, Version: version})
 	p := tea.NewProgram(model,
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
