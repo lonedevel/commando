@@ -831,3 +831,16 @@ func TestStartScreenDelete(t *testing.T) {
 		t.Errorf("ctrl+d unchosen: %q %v", m.pick.Value(), recent)
 	}
 }
+
+func TestStartScreenVersion(t *testing.T) {
+	m := New(Config{Version: "1.2.3"})
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	if !strings.Contains(ansi.Strip(m.View()), "v1.2.3") {
+		t.Error("start screen doesn't show the version")
+	}
+	// too narrow for the version beside the tagline: leave it out
+	m.Update(tea.WindowSizeMsg{Width: 50, Height: 30})
+	if strings.Contains(ansi.Strip(m.View()), "v1.2.3") {
+		t.Error("version shown on a narrow screen")
+	}
+}
