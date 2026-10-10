@@ -1,5 +1,36 @@
 # Release notes
 
+## v0.23.0
+
+The start screen shows which version of commando is running.
+
+### New
+
+- **Version on the start screen:** the start screen's title line ends with commando's version, the same one `--version` prints, so it's easy to check which release you're running, for example after an upgrade or when reporting a problem. It's left out when the window is too narrow to fit it.
+
+### For developers
+
+- `CLAUDE.md` describes the project's layout, commands and conventions for coding agents, and `ROADMAP.md` lists more planned features.
+
+### Install
+
+With Homebrew (macOS or Linux):
+
+```sh
+brew tap lonedevel/commando https://github.com/lonedevel/commando
+brew install commando
+```
+
+To upgrade, refresh the tap first: `brew update && brew upgrade commando`.
+
+With Go 1.24 or later:
+
+```sh
+go install github.com/lonedevel/commando/cmd/commando@v0.23.0
+```
+
+Or download the archive for your system from the release page, unpack it, and put `commando` on your `PATH`. The binaries aren't signed, so if macOS says it can't verify the developer, run `xattr -d com.apple.quarantine commando` once.
+
 ## v0.22.0
 
 Better at macOS and npm manuals, found by measuring them on a Mac.
